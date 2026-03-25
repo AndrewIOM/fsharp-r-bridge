@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>preview</LangVersion>
+    <RootNamespace>RBridge</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="EngineHost.fs" />
+    <Compile Include="NativeApi.fs" />
+    <Compile Include="Logging.fs" />
+    <Compile Include="RInterop.fs" />
+    <Compile Include="Converters.fs" />
+    <Compile Include="SExp.fs" />
+    <Compile Include="Console.fs" />
+  </ItemGroup>
+</Project>
