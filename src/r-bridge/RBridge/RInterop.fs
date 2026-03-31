@@ -1,80 +1,9 @@
 namespace RBridge
 
 open System
-open System.Runtime.InteropServices
-
-/// Representation of a value returned from R.  we keep this abstract here
-/// until the engine implementation is sorted out.
-type RValue =
-    | RNull
-    | RNumeric of float []
-    | RInteger of int []
-    | RLogical of bool []
-    | RCharacter of string []
-    | RList of RValue list
-    | RExpression of string        // unevaluated expression etc.
-    // ... extend as needed
 
 /// A module that represnts the interop layer with the R API.
 module RInterop =
-
-    /// utility that protects a sexp, executes the function then
-    /// automatically unprotects the value.  mirrors the common
-    /// ``PROTECT(expr); …; UNPROTECT(1)`` pattern from the R API.
-    let private withProtected (expr:NativeApi.sexp) f run : 'a =
-        let p = NativeApi.protect expr run
-        try f p
-        finally NativeApi.unprotect 1 run
-
-    /// convert a piece of R source into a parsed vector and return
-    /// the status code along with the vector object.  the supplied
-    /// `sexp` must already be a protected CHARSXP (usually from
-    /// `mkChar`).
-    let private parseExpression (protectedString:NativeApi.sexp) engine : int * NativeApi.sexp =
-        let mutable status = 0
-        let globalEnv = NativeApi.globalEnv engine
-        let vec = NativeApi.parseVector protectedString -1 &status globalEnv engine
-        status, vec
-
-    /// Evaluate a string of R code and return a typed value.
-    let evaluate (code:string) (engine: NativeApi.RunningEngine) : RValue =
-        Logging.debug "evaluating: %s" code
-        let cstr = NativeApi.mkChar code engine.Api
-        Logging.debug "mkChar returned %A" cstr
-        withProtected cstr (fun protectedCstr ->
-            Logging.debug "string object created and protected"
-            let status, parsed = parseExpression protectedCstr engine
-            Logging.debug "parsed expression, status=%d" status
-            Logging.debug "calling eval"
-            let globalEnv = NativeApi.globalEnv engine
-            let res = NativeApi.eval parsed globalEnv engine.Api
-            Logging.debug "eval returned %A" res
-            // discard the result for now
-            ()
-        ) engine.Api
-        RValue.RExpression code
-
-    /// Execute a string of R code for its side effects.
-    let exec (code:string) : unit =
-        let _ = evaluate code
-        ()
-
-    /// Assign a value to a named symbol in R.
-    let setSymbol (name:string) (value:RValue) (engine: NativeApi.RunningEngine) : unit =
-        // for now we only support expression values
-        Logging.debug "setSymbol %s = %A" name value
-        let sym = NativeApi.install name engine.Api
-        // TODO convert RValue -> sexp; use global environment
-        let globalEnv = NativeApi.globalEnv engine
-        NativeApi.defineVar sym 0n globalEnv |> ignore
-
-    /// Capture the value of a symbol.
-    let getSymbol (name:string) (engine: NativeApi.RunningEngine) : RValue option =
-        Logging.debug "getSymbol %s" name
-        let sym = NativeApi.install name engine.Api
-        let globalEnv = NativeApi.globalEnv engine
-        let v = NativeApi.findVar sym globalEnv engine.Api
-        if v = 0n then None else Some (RValue.RExpression name)
 
     /// initialise the engine (e.g. load DLL, set environment etc.)
     let initialiseAt (loc:EngineHost.RLocation) : NativeApi.REngine =

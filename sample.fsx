@@ -1,4 +1,4 @@
-#r "bin/Debug/net6.0/r-bridge.dll"
+#r "src/r-bridge/RBridge/bin/Debug/net10.0/r-bridge.dll"
 
 open RBridge
 
@@ -7,7 +7,7 @@ let show label v = printfn "%s => %A" label v
 let loc = EngineHost.tryFindSystemR() |> Option.get
 
 printfn "found R at %A" loc
-RInterop.initialise()
+let engine = RInterop.initialise()
 // simple evaluation
 show "1+1" (RInterop.evaluate "1+1")
 // assign with exec and then evaluate

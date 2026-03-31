@@ -5,8 +5,9 @@
     <RootNamespace>RBridge</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Create.fs" />
+    <Compile Include="Complex.fs" />
     <Compile Include="Extract.fs" />
+    <Compile Include="Create.fs" />
     <Compile Include="ActivePatterns.fs" />
     <ProjectReference Include="../RBridge/RBridge.fsproj" />
   </ItemGroup>

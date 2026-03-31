@@ -1,14 +1,10 @@
 The MIT License (MIT)
 
 Copyright (c) 2026 Andrew Martin (University of Cambridge)
-Copyright (c) 2014-2020 Jean-Michel Perraud
-Copyright (c) 2019-2020 Luke Rasmussen
-Copyright (c) 2018 David Pendray
-Copyright (c) 2017 Guillaume Jamet
-Copyright (c) 2016 Tomas Petricek, Wei Lu
-Copyright (c) 2015 Nigel Delaney, Yuanhe Huang
-Copyright (c) 2014 skuyguy94, David Charbonneau
-Copyright (c) 2013 Kosei ABE, evolvedmicrobe
+
+This project is inspired by and incorporates adapted concepts from the
+R.NET project (MIT licensed). Portions of the design and implementation
+are derived from or influenced by prior work by the R.NET contributors.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

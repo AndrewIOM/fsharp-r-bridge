@@ -2,6 +2,10 @@ namespace RBridge
 
 open System.Runtime.InteropServices
 
+type SymbolicExpression =
+    { ptr: nativeint }
+
+/// Functions for working with R symbolic expressions.
 module SymbolicExpression =
 
     type SexpType =
@@ -19,7 +23,7 @@ module SymbolicExpression =
         | IntegerVector
         | RealVector
         | ComplexVector
-        | StringVector
+        | CharacterVector
         | DotDotDot
         | Any
         | RawVector
@@ -40,15 +44,11 @@ module SymbolicExpression =
         | IntegerVector -> 13uy 
         | RealVector -> 14uy 
         | ComplexVector -> 15uy 
-        | StringVector -> 16uy 
+        | CharacterVector -> 16uy 
         | DotDotDot -> 17uy 
         | Any -> 18uy 
         | RawVector -> 24uy 
         | List -> 19uy
-
-
-    type SymbolicExpression =
-        { ptr: nativeint }
 
     let getType (engine: RBridge.NativeApi.RunningEngine) (sexp: SymbolicExpression) : SexpType =
         let typeCode = Marshal.ReadByte(sexp.ptr)
@@ -68,7 +68,7 @@ module SymbolicExpression =
         | 13uy -> IntegerVector
         | 14uy -> RealVector
         | 15uy -> ComplexVector
-        | 16uy -> StringVector
+        | 16uy -> CharacterVector
         | 17uy -> DotDotDot
         | 18uy -> Any
         | 24uy -> RawVector
@@ -81,15 +81,15 @@ module SymbolicExpression =
         | IntegerVector
         | RealVector
         | LogicalVector
-        | StringVector
+        | CharacterVector
         | ComplexVector
         | RawVector -> true
         | _ -> false
 
-    let getLength engine (sexp:SymbolicExpression) =
+    let length engine (sexp:SymbolicExpression) =
         NativeApi.length sexp.ptr engine
 
-    let getAttribute (sexp: SymbolicExpression) (name: string) (engine: NativeApi.RunningEngine) : SymbolicExpression option =
+    let tryGetAttribute (sexp: SymbolicExpression) (name: string) (engine: NativeApi.RunningEngine) : SymbolicExpression option =
         let sym = NativeApi.install name engine.Api
         let attrPtr = NativeApi.getAttribute sexp.ptr sym engine.Api
         if attrPtr = engine.Api.nilValue then

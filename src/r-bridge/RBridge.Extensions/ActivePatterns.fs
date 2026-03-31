@@ -2,44 +2,90 @@ namespace RBridge.Extensions
 
 module ActivePatterns =
 
+    open RBridge
     open RBridge.SymbolicExpression
 
-    let (|CharacterVector|_|) engine sexp =
-        match getType engine sexp with
-        | StringVector when Extract.getDimension engine sexp = 1 ->
-            Some (Extract.extractStringArray engine sexp)
+    let internal isVector engine sexp ofType someFn =
+        match SymbolicExpression.getType engine sexp with
+        | t when t = ofType && Extract.getDimension engine sexp = 1 -> Some sexp
         | _ -> None
 
+    let internal isMatrix engine sexp ofType someFn =
+        match SymbolicExpression.getType engine sexp with
+        | t when t = ofType && Extract.getDimension engine sexp = 2 -> Some sexp
+        | _ -> None
 
-// /// Module from R.NET, which was itself ported from RProvider originally.
-// module ActivePatterns =
+    // Vectors
+    let (|CharacterVector|_|) engine sexp = isVector engine sexp SymbolicExpression.CharacterVector Extract.extractStringArray
+    let (|LogicalVector|_|) engine sexp = isVector engine sexp SymbolicExpression.LogicalVector Extract.extractLogicalArray
+    let (|IntegerVector|_|) engine sexp = isVector engine sexp SymbolicExpression.IntegerVector Extract.extractIntArray
+    let (|RealVector|_|) engine sexp = isVector engine sexp SymbolicExpression.RealVector Extract.extractFloatArray
+    let (|ComplexVector|_|) engine sexp = isVector engine sexp SymbolicExpression.ComplexVector Extract.extractComplexArray
+    let (|RawVector|_|) engine (sexp: SymbolicExpression) = isVector engine sexp SymbolicExpression.RawVector Extract.extractRawArray
+    // let (|UntypedVector|_|) engine (sexp: SymbolicExpression) =
+    //     asVectorOf engine sexp SymbolicExpression.RawVector Extract.extractRawArray
 
-//     type S = SymbolicExpressionExtension
+    // Matricies
+    let (|CharacterMatrix|_|) engine sexp =
+        isMatrix engine sexp SymbolicExpression.CharacterVector Extract.extractStringMatrix
 
-//     let getDimension (sexp:SymbolicExpression) =
-//         let dimSymbol = sexp.Engine.GetPredefinedSymbol ("R_DimSymbol") |> S.AsSymbol
-//         let dim = sexp.GetAttribute (dimSymbol.PrintName)
-//         if dim = null then 1 else (dim.AsInteger ()).Length
+    let (|LogicalMatrix|_|) engine sexp =
+        isMatrix engine sexp SymbolicExpression.LogicalVector Extract.extractLogicalMatrix
 
-//     let isVector (sexp:SymbolicExpression) = sexp <> null && sexp.IsVector() && getDimension sexp = 1
-//     let isMatrix (sexp:SymbolicExpression) = sexp <> null && sexp.IsMatrix ()
-//     let isArray (sexp:SymbolicExpression) = sexp <> null && sexp.IsVector() && getDimension sexp > 2
+    let (|IntegerMatrix|_|) engine sexp =
+        isMatrix engine sexp SymbolicExpression.IntegerVector Extract.extractIntMatrix
 
-//     let (|CharacterVector|_|) (sexp: SymbolicExpression)  = if isVector sexp && sexp.Type = SymbolicExpressionType.CharacterVector then Some(sexp.AsCharacter()) else None
-//     let (|ComplexVector|_|)   (sexp: SymbolicExpression)  = if isVector sexp && sexp.Type = SymbolicExpressionType.ComplexVector   then Some(sexp.AsComplex()) else None
-//     let (|IntegerVector|_|)   (sexp: SymbolicExpression)  = if isVector sexp && sexp.Type = SymbolicExpressionType.IntegerVector && not (sexp.IsFactor ()) then Some(sexp.AsInteger()) else None
-//     let (|LogicalVector|_|)   (sexp: SymbolicExpression)  = if isVector sexp && sexp.Type = SymbolicExpressionType.LogicalVector   then Some(sexp.AsLogical()) else None
-//     let (|NumericVector|_|)   (sexp: SymbolicExpression)  = if isVector sexp && sexp.Type = SymbolicExpressionType.NumericVector   then Some(sexp.AsNumeric()) else None
-//     let (|RawVector|_|)       (sexp: SymbolicExpression)  = if isVector sexp && sexp.Type = SymbolicExpressionType.RawVector   then Some(sexp.AsRaw()) else None
-//     let (|UntypedVector|_|)   (sexp: SymbolicExpression)  = if isVector sexp then Some(sexp.AsVector()) else None
+    let (|RealMatrix|_|) engine sexp =
+        isMatrix engine sexp SymbolicExpression.RealVector Extract.extractDoubleMatrix
 
-//     let (|Function|_|)        (sexp: SymbolicExpression)  =
-//         if sexp <> null && (sexp.Type = SymbolicExpressionType.BuiltinFunction || sexp.Type = SymbolicExpressionType.Closure || sexp.Type = SymbolicExpressionType.SpecialFunction) then
-//             Some(sexp.AsFunction()) else None
+    let (|ComplexMatrix|_|) engine sexp =
+        isMatrix engine sexp SymbolicExpression.ComplexMatrix Extract.extractComplexMatrix
 
-//     let (|BuiltinFunction|_|) (sexp: SymbolicExpression)  = if sexp <> null && sexp.Type = SymbolicExpressionType.BuiltinFunction then Some(sexp.AsFunction() :?> BuiltinFunction) else None
-//     let (|Closure|_|)         (sexp: SymbolicExpression)  = if sexp <> null && sexp.Type = SymbolicExpressionType.Closure then Some(sexp.AsFunction() :?> Closure) else None
-//     let (|SpecialFunction|_|) (sexp: SymbolicExpression)  = if sexp <> null && sexp.Type = SymbolicExpressionType.SpecialFunction then Some(sexp.AsFunction() :?> SpecialFunction) else None
+    let (|RawMatrix|_|) engine sexp =
+        isMatrix engine sexp SymbolicExpression.RawVector Extract.extractRawMatrix
+
+//     let (|NumericMatrix|_|)   (sexp: SymbolicExpression)  = if isMatrix sexp && sexp.Type = SymbolicExpressionType.NumericVector   then Some(sexp.AsNumericMatrix()) else None
+
+    // Functions:
+    let internal asFunctionOf engine sexp ofType =
+        match SymbolicExpression.getType engine sexp with
+        | t when t = ofType -> Some sexp
+        | _ -> None
+
+    let (|Closure|_|) engine sexp =
+        asFunctionOf engine sexp SexpType.Closure
+
+    let (|BuiltinFunction|_|) engine sexp =
+        asFunctionOf engine sexp SexpType.Builtin
+
+    let (|SpecialFunction|_|) engine sexp =
+        asFunctionOf engine sexp SexpType.Special
+
+    let (|Function|_|) engine sexp =
+        match SymbolicExpression.getType engine sexp with
+        | SexpType.Closure
+        | SexpType.Builtin
+        | SexpType.Special -> Some sexp
+        | _ -> None
+
+    // S4 objects
+    let (|S4Object|_|) engine sexp =
+        if S4.isS4 engine sexp
+        then S4.tryGetClass engine sexp
+        else None
+
+    // Others
+    let (|Factor|_|) engine (sexp: SymbolicExpression) =
+        if Factor.isFactor engine sexp
+        then Some sexp
+        else None
+
+    let (|DataFrame|_|) (sexp:SymbolicExpression) =
+        if DataFrame.isFrame sexp
+        then Some (sexp.AsDataFrame ())
+        else None
+
+
 
 //     let (|Environment|_|)   (sexp: SymbolicExpression)    = if sexp <> null && sexp.Type = SymbolicExpressionType.Environment  then Some(sexp.AsEnvironment()) else None
 //     let (|Expression|_|)    (sexp: SymbolicExpression)    = if sexp <> null && sexp.Type = SymbolicExpressionType.ExpressionVector then Some(sexp.AsExpression()) else None
@@ -48,14 +94,3 @@ module ActivePatterns =
 //     let (|Pairlist|_|)      (sexp: SymbolicExpression)    = if sexp <> null && sexp.Type = SymbolicExpressionType.Pairlist then Some(sexp :?> Pairlist) else None
 //     let (|Null|_|)          (sexp: SymbolicExpression)    = if sexp <> null && sexp.Type = SymbolicExpressionType.Null then Some() else None
 //     let (|Symbol|_|)        (sexp: SymbolicExpression)    = if sexp <> null && sexp.Type = SymbolicExpressionType.Symbol then Some(sexp.AsSymbol()) else None
-
-//     let (|Factor|_|) (sexp: SymbolicExpression) = if sexp <> null && sexp.IsFactor() then Some(sexp.AsFactor()) else None
-
-//     let (|CharacterMatrix|_|) (sexp: SymbolicExpression)  = if isMatrix sexp && sexp.Type = SymbolicExpressionType.CharacterVector then Some(sexp.AsCharacterMatrix()) else None
-//     let (|ComplexMatrix|_|)   (sexp: SymbolicExpression)  = if isMatrix sexp && sexp.Type = SymbolicExpressionType.ComplexVector   then Some(sexp.AsComplexMatrix()) else None
-//     let (|IntegerMatrix|_|)   (sexp: SymbolicExpression)  = if isMatrix sexp && sexp.Type = SymbolicExpressionType.IntegerVector   then Some(sexp.AsIntegerMatrix()) else None
-//     let (|LogicalMatrix|_|)   (sexp: SymbolicExpression)  = if isMatrix sexp && sexp.Type = SymbolicExpressionType.LogicalVector   then Some(sexp.AsLogicalMatrix()) else None
-//     let (|NumericMatrix|_|)   (sexp: SymbolicExpression)  = if isMatrix sexp && sexp.Type = SymbolicExpressionType.NumericVector   then Some(sexp.AsNumericMatrix()) else None
-//     let (|RawMatrix|_|)       (sexp: SymbolicExpression)  = if isMatrix sexp && sexp.Type = SymbolicExpressionType.RawVector   then Some(sexp.AsRawMatrix()) else None
-
-//     let (|DataFrame|_|) (sexp:SymbolicExpression) = if sexp <> null && sexp.IsDataFrame () then Some (sexp.AsDataFrame ()) else None
