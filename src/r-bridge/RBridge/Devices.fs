@@ -11,26 +11,46 @@ module Devices =
           ShowMessage  : string -> unit
           Busy         : bool -> unit }
 
-    module NativeDeviceApi =
 
+    module Console =
+
+        open System
         open System.Runtime.InteropServices
-        open NativeApi
 
-        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-        type R_WriteConsole = delegate of nativeint * int * int -> unit
+        module Native =
 
-        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-        type R_ReadConsole = delegate of string * nativeint * int * int -> int
-    
-        let installDevice (engine: RunningEngine) device =
+            [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+            type WriteConsoleCallback = delegate of IntPtr * int -> unit
 
-            // Create delegate
-            let writeDel =
-                R_WriteConsole(fun ptr len otype ->
+            [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
+            extern unit rbridge_set_write_console(IntPtr cb)
+
+        let register (device : CharacterDevice) =
+            let handler =
+                Native.WriteConsoleCallback(fun ptr len ->
                     let text = Marshal.PtrToStringAnsi(ptr, len)
                     device.WriteConsole text)
 
-            // Write delegate pointer into R’s global variable
-            let fp = Marshal.GetFunctionPointerForDelegate writeDel
-            Marshal.WriteIntPtr(engine.Api.ptr_R_WriteConsole, fp)
-            // Same pattern for ReadConsole, ShowMessage, Busy, etc.
+            let fp = Marshal.GetFunctionPointerForDelegate handler
+            Native.rbridge_set_write_console fp
+
+        let defaultDevice : CharacterDevice =
+            { ReadConsole =
+                fun prompt len addToHistory ->
+                    System.Console.Write prompt
+                    System.Console.ReadLine()
+
+              WriteConsole =
+                fun text ->
+                    System.Console.Write text
+
+              ShowMessage =
+                fun msg ->
+                    System.Console.WriteLine msg
+
+              Busy =
+                fun isBusy ->
+                    if isBusy then
+                        System.Console.WriteLine "[R] Busy..."
+                    else
+                        System.Console.WriteLine "[R] Ready." }

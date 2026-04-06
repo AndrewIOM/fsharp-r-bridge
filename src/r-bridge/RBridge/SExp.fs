@@ -106,3 +106,6 @@ module SymbolicExpression =
 
         let sym = NativeApi.install name engine.Api
         NativeApi.setAttribute sexp.ptr sym value.ptr engine.Api
+
+    let print (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) =
+        NativeApi.printVal sexp.ptr engine

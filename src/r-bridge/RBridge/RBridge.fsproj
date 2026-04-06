@@ -12,4 +12,5 @@
     <Compile Include="SExp.fs" />
     <Compile Include="Devices.fs" />
   </ItemGroup>
+  <Import Project="native/native.props" />
 </Project>

@@ -10,32 +10,96 @@ module NativeApi =
 
     type sexp = nativeint
 
-    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type Rf_eval = delegate of sexp * sexp -> sexp
+    module Construction =
 
-    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type Rf_protect = delegate of sexp -> sexp
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_cons = delegate of sexp * sexp -> sexp
 
-    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type Rf_unprotect = delegate of int -> unit
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_lcons = delegate of sexp * sexp -> sexp
 
-    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type Rf_install = delegate of string -> sexp
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_lang1 = delegate of sexp -> sexp
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_lang2 = delegate of sexp * sexp -> sexp
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_lang3 = delegate of sexp * sexp * sexp -> sexp
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_allocList = delegate of int -> sexp
+
+        type ConstructionApi = 
+            { cons : Rf_cons
+              lcons : Rf_lcons
+              lang1 : Rf_lang1
+              lang2 : Rf_lang2
+              lang3 : Rf_lang3
+              allocList : Rf_allocList }
+
+    module Evaluate =
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_eval = delegate of sexp * sexp -> sexp
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type R_ParseVector = delegate of sexp * int * byref<int> * sexp -> sexp
+
+        type EvaluateApi = {
+            eval: Rf_eval
+            parseVector : R_ParseVector
+        }
+
+    module Memory =
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_protect = delegate of sexp -> sexp
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_unprotect = delegate of int -> unit
+
+        type MemoryApi = {
+          protect : Rf_protect
+          unprotect : Rf_unprotect
+        }
+
+    module Symbols =
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_install = delegate of string -> sexp
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_mkString = delegate of string -> sexp
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_mkChar = delegate of string -> sexp
+
+        type SymbolApi = {
+          install : Rf_install
+          mkString : Rf_mkString
+          mkChar : Rf_mkChar
+
+        }
+
+    module Attributes =
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_getAttrib = delegate of sexp * sexp -> sexp
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_setAttrib = delegate of sexp * sexp * sexp -> unit
+
+        type AttributeApi = {
+            setAttrib: Rf_setAttrib
+            getAttrib: Rf_getAttrib
+        }
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type Rf_findVar = delegate of sexp * sexp -> sexp
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type Rf_defineVar = delegate of sexp * sexp * sexp -> sexp
-
-    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type Rf_mkString = delegate of sexp -> sexp
-
-    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type Rf_mkChar = delegate of string -> sexp
-
-    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type R_ParseVector = delegate of sexp * int * byref<int> * sexp -> sexp
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type Rf_length = delegate of sexp -> int
@@ -45,12 +109,6 @@ module NativeApi =
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type Rf_ncols = delegate of sexp -> int
-
-    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type Rf_getAttrib = delegate of sexp * sexp -> sexp
-
-    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type Rf_setAttrib = delegate of sexp * sexp * sexp -> unit
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type Rf_allocVector = delegate of int * int -> sexp
@@ -73,6 +131,9 @@ module NativeApi =
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type Rf_dataptr = delegate of nativeint -> nativeint
 
+    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+    type Rf_PrintValue = delegate of nativeint -> unit
+
     /// called after Rf_initialize_R on Unix to complete setup of the main loop
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type setup_Rmainloop = delegate of unit -> unit
@@ -82,20 +143,17 @@ module NativeApi =
     type R_ReplDLLinit = delegate of unit -> unit
 
     type Api =
-        { eval : Rf_eval
-          protect : Rf_protect
-          unprotect : Rf_unprotect
-          install : Rf_install
+        { construct: Construction.ConstructionApi
+          eval: Evaluate.EvaluateApi
+          memory: Memory.MemoryApi
+          symbol: Symbols.SymbolApi
+          attribute: Attributes.AttributeApi
+          pointers: PointerAccess
           findVar : Rf_findVar
           defineVar : Rf_defineVar
-          mkString : Rf_mkString
-          mkChar : Rf_mkChar
-          parseVector : R_ParseVector
           length : Rf_length
           nrows : Rf_nrows
           ncols : Rf_ncols
-          getAttrib : Rf_getAttrib
-          setAttrib: Rf_setAttrib
           allocVector : Rf_allocVector
           allocMatrix : Rf_allocMatrix
           initializeR : Rf_initialize_R
@@ -103,9 +161,9 @@ module NativeApi =
           setupMainloop : setup_Rmainloop
           replDllInit : R_ReplDLLinit
           endEmbeddedR : Rf_endEmbeddedR
+          printR: Rf_PrintValue
           globalEnv: sexp
-          nilValue : sexp
-          pointers: PointerAccess }
+          nilValue : sexp }
 
     and PointerAccess = {
         integerPointer : sexp -> sexp   // INTEGER(x)
@@ -143,20 +201,36 @@ module NativeApi =
         System.Console.WriteLine(sprintf "NativeApi: initial nilValue placeholder = %A" nilVal)
         {
             Api = {
-                eval = get "Rf_eval"
-                protect = get "Rf_protect"
-                unprotect = get "Rf_unprotect"
-                install = get "Rf_install"
+                construct = { 
+                    cons = get "Rf_cons"
+                    lcons = get "Rf_lcons"
+                    lang1 = get "Rf_lang1"
+                    lang2 = get "Rf_lang2"
+                    lang3 = get "Rf_lang3"
+                    allocList = get "Rf_allocList"
+                }
+                eval = {
+                    eval = get "Rf_eval"
+                    parseVector = get "R_ParseVector"
+                }
+                memory = {
+                    protect = get "Rf_protect"
+                    unprotect = get "Rf_unprotect"
+                }
+                symbol = {
+                    install = get "Rf_install"
+                    mkString = get "Rf_mkString"
+                    mkChar = get "Rf_mkChar"
+                }
+                attribute = {
+                    getAttrib = get "Rf_getAttrib"
+                    setAttrib = get "Rf_setAttrib"
+                }
                 findVar = get "Rf_findVar"
                 defineVar = get "Rf_defineVar"
-                mkString = get "Rf_mkString"
-                mkChar = get "Rf_mkChar"
-                parseVector = get "R_ParseVector"
                 length = get "Rf_length"
                 nrows = get "Rf_nrows"
                 ncols = get "Rf_ncols"
-                getAttrib = get "Rf_getAttrib"
-                setAttrib = get "Rf_setAttrib"
                 allocVector = get "Rf_allocVector"
                 allocMatrix = get "Rf_allocMatrix"
                 initializeR = get "Rf_initialize_R"
@@ -164,6 +238,7 @@ module NativeApi =
                 setupMainloop = get "setup_Rmainloop"
                 replDllInit = get "R_ReplDLLinit"
                 endEmbeddedR = get "Rf_endEmbeddedR"
+                printR = get "Rf_PrintValue"
                 globalEnv = 0n
                 nilValue = nilVal
                 pointers = {
@@ -182,15 +257,15 @@ module NativeApi =
         | Running api -> Ok api.Api
         | NotRunning e -> Error (sprintf "Native API not loaded: %s" e)
 
-    let eval expr env = fun engine -> engine.eval.Invoke(expr, env)
-    let protect expr = fun engine -> engine.protect.Invoke expr
-    let unprotect n = fun engine -> engine.unprotect.Invoke n
-    let install name = fun engine -> engine.install.Invoke name
+    let eval expr env = fun engine -> engine.eval.eval.Invoke(expr, env)
+    let protect expr = fun engine -> engine.memory.protect.Invoke expr
+    let unprotect n = fun engine -> engine.memory.unprotect.Invoke n
+    let install name = fun engine -> engine.symbol.install.Invoke name
     let findVar sym env = fun engine -> engine.findVar.Invoke(sym, env)
     let defineVar sym value env = fun engine -> engine.defineVar.Invoke(sym, value, env)
 
-    let setAttribute sexp sym newVal = fun engine -> engine.setAttrib.Invoke(sexp, sym, newVal)
-    let getAttribute sexp sym = fun engine -> engine.getAttrib.Invoke(sexp, sym)
+    let setAttribute sexp sym newVal = fun engine -> engine.attribute.setAttrib.Invoke(sexp, sym, newVal)
+    let getAttribute sexp sym = fun engine -> engine.attribute.getAttrib.Invoke(sexp, sym)
 
     let nilValue = fun engine -> engine.Api.nilValue
     let globalEnv = fun engine -> engine.Api.globalEnv
@@ -213,24 +288,17 @@ module NativeApi =
     /// allocate an UTF8 null-terminated string and call Rf_mkString.
     /// Returns both the resulting sexp and the native pointer so that the
     /// caller can free the memory once it has been protected by R.
-    let mkStringPtr (s:string) api : sexp * nativeint =
-        System.Console.WriteLine(sprintf "NativeApi.mkStringPtr converting '%s'" s)
-        let bytes = System.Text.Encoding.UTF8.GetBytes(s + "\0")
-        let ptr = Marshal.AllocHGlobal(bytes.Length)
-        Marshal.Copy(bytes, 0, ptr, bytes.Length)
-        System.Console.WriteLine(sprintf "NativeApi.mkStringPtr calling Rf_mkString")
-        let sexp = api.mkString.Invoke ptr
-        System.Console.WriteLine(sprintf "NativeApi.mkStringPtr returned sexp=%A" sexp)
-        sexp, ptr
+    let mkString (s:string) api : sexp =
+        api.symbol.mkString.Invoke s
 
     /// create a CHARSXP directly from a managed string using Rf_mkChar
     let mkChar (s:string) api : sexp =
-        api.mkChar.Invoke s
+        api.symbol.mkChar.Invoke s
 
     /// parseVector takes an expression and returns a vector of parsed
     /// expressions.  `status` is a byref int that receives any parser status.
     let parseVector (expr:sexp) (n:int) (status:byref<int>) (env:sexp) engine =
-        engine.Api.parseVector.Invoke(expr, n, &status, env)
+        engine.Api.eval.parseVector.Invoke(expr, n, &status, env)
 
     let length v = fun running -> running.Api.length.Invoke(v)
     let nrows m = fun running -> running.Api.nrows.Invoke(m)
@@ -243,4 +311,5 @@ module NativeApi =
     let setupMainloop api = api.Api.setupMainloop.Invoke()
     /// optional hook used by RInside / R.NET, safe to call unconditionally
     let replDllInit api = api.Api.replDllInit.Invoke()
+    let printVal m api = api.Api.printR.Invoke m
     let endEmbeddedR status = fun running -> running.Api.endEmbeddedR.Invoke(status)
