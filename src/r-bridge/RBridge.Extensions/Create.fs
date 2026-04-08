@@ -5,6 +5,33 @@ open System.Runtime.InteropServices
 open RBridge
 open RBridge.SymbolicExpression
 
+module Create =
+
+    let stringVector (engine: NativeApi.RunningEngine) (strings: string seq)  : SymbolicExpression =
+        let vec = engine.Api.allocVector.Invoke(typeAsInt CharacterVector, Seq.length strings)
+        for i = 0 to Seq.length strings - 1 do
+            let charPtr = engine.Api.symbol.mkChar.Invoke(Seq.item i strings)
+            SymbolicExpression.setVectorElement engine { ptr = vec } i { ptr = charPtr }
+        { ptr = vec }
+
+    let intVector engine strings  : SymbolicExpression =
+        failwith "not implemented"
+
+    let realVector engine strings  : SymbolicExpression =
+        failwith "not implemented"
+
+    let logicalVector (engine: NativeApi.RunningEngine) (strings: bool seq)  : SymbolicExpression =
+        failwith "not implemented"
+        // let vec = engine.Api.allocVector.Invoke(typeAsInt LogicalVector, values.Length)
+        // let ptr = engine.Api.pointers.logicalPointer vec
+        // for i = 0 to values.Length - 1 do
+        //     ptr.[i] <- if values.[i] then 1 else 0
+        // { ptr = vec }
+
+    let complexVector engine strings  : SymbolicExpression =
+        failwith "not implemented"
+
+
 module REnvironment =
 
     type REnvironment = private REnvironment of RBridge.NativeApi.sexp
@@ -54,10 +81,32 @@ module PairList =
 
 module Evaluate =
 
-    /// Evaluate raw R code in the R engine.
-    let eval (expr:string) (env: REnvironment.REnvironment) (engine: NativeApi.RunningEngine) =
-        let exprPtr = NativeApi.mkChar expr engine.Api
-        let result = NativeApi.eval exprPtr env.Pointer engine.Api
+    /// Evaluate raw R code in the R engine. The code must contain
+    /// only a single expression, not multiple expressions.
+    let eval (code:string) (env: REnvironment.REnvironment) (engine: NativeApi.RunningEngine) =
+
+        let strVec = Create.stringVector engine [| code |]
+        let mutable status = NativeApi.Evaluate.ParseStatus.PARSE_NULL
+        let exprVec = engine.Api.eval.parseVector.Invoke(strVec.ptr, -1, &status, NativeApi.nilValue engine)
+
+        printfn "str is %A" (SymbolicExpression.getType engine strVec)
+        printfn "parseVector.Invoke = %A" (engine.Api.eval.parseVector.GetType().GetMethod("Invoke"))
+
+        if status <> NativeApi.Evaluate.ParseStatus.PARSE_OK then
+            failwithf "Parse error (%A) in expression: %s" status code
+
+        if NativeApi.length exprVec engine <> 1
+        then failwith "The code contained multiple expressions, when only one is permitted here."
+
+        // Extract the first (and only) parsed expression from the VECSXP,
+        // as a EXPRSXP:
+        let firstExpr =
+            SymbolicExpression.getVectorElement 
+                engine
+                { ptr = exprVec }
+                0
+
+        let result = NativeApi.eval firstExpr.ptr env.Pointer engine.Api
         { ptr = result }
 
     /// Call a function with named and / or unnamed arguments, formatted as a
@@ -177,24 +226,6 @@ module Function =
         failwith "not implemented"
 
 
-module Create =
-
-    let stringVector engine strings  : SymbolicExpression =
-        failwith "not implemented"
-
-    let intVector engine strings  : SymbolicExpression =
-        failwith "not implemented"
-
-    let realVector engine strings  : SymbolicExpression =
-        failwith "not implemented"
-
-    let logicalVector engine strings  : SymbolicExpression =
-        failwith "not implemented"
-
-    let complexVector engine strings  : SymbolicExpression =
-        failwith "not implemented"
-
-
 
     [<Literal>]
     let RDateOffset = 25569.
@@ -206,7 +237,7 @@ module Create =
             |> Seq.toArray
 
         let sexpPtr =
-            let t = typeAsByte RealVector
+            let t = typeAsInt RealVector
             NativeApi.allocVector (int t) values.Length engine
 
         let sexp = { ptr = sexpPtr }
@@ -215,7 +246,7 @@ module Create =
         Marshal.Copy(values, 0, dataPtr, values.Length)
 
         let classPtr =
-            let t = typeAsByte CharacterVector
+            let t = typeAsInt CharacterVector
             NativeApi.allocVector (int t) 1 engine
 
         let classSexp = { ptr = classPtr }

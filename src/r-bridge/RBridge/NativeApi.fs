@@ -40,11 +40,19 @@ module NativeApi =
 
     module Evaluate =
 
+        type ParseStatus =
+            | PARSE_NULL = 0
+            | PARSE_OK = 1
+            | PARSE_INCOMPLETE = 2
+            | PARSE_ERROR = 3
+            | PARSE_EOF = 4
+
+        /// TODO Replace with R_tryEval
         [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
         type Rf_eval = delegate of sexp * sexp -> sexp
 
         [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-        type R_ParseVector = delegate of sexp * int * byref<int> * sexp -> sexp
+        type R_ParseVector = delegate of sexp * int * byref<ParseStatus> * sexp -> sexp
 
         type EvaluateApi = {
             eval: Rf_eval
@@ -95,6 +103,51 @@ module NativeApi =
             getAttrib: Rf_getAttrib
         }
 
+    module Types =
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isNull = delegate of nativeint -> int
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isSymbol = delegate of nativeint -> int
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isLogical = delegate of nativeint -> int
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isInteger = delegate of nativeint -> int
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isReal = delegate of nativeint -> int
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isComplex = delegate of nativeint -> int
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isString = delegate of nativeint -> int
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isList = delegate of nativeint -> int
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isExpression = delegate of nativeint -> int
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isEnvironment = delegate of nativeint -> int
+
+        type TypesApi =
+            { isNull        : Rf_isNull
+              isSymbol      : Rf_isSymbol
+              isLogical     : Rf_isLogical
+              isInteger     : Rf_isInteger
+              isReal        : Rf_isReal
+              isComplex     : Rf_isComplex
+              isString      : Rf_isString
+              isList        : Rf_isList
+              isExpression  : Rf_isExpression
+              isEnvironment : Rf_isEnvironment }
+
+
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type Rf_findVar = delegate of sexp * sexp -> sexp
 
@@ -117,26 +170,21 @@ module NativeApi =
     type Rf_allocMatrix = delegate of int * int * int -> sexp
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type Rf_initialize_R = delegate of int * string[] -> int
-
-    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type R_setStartTime = delegate of unit -> unit
+
+    // We are not using string[] arguments here, because
+    // R mutates them, so we need them to be C char* instead.
+    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+    type Rf_initEmbeddedR = delegate of int * nativeint -> int
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type Rf_endEmbeddedR = delegate of int -> unit
-
-    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type Rf_initEmbeddedR = delegate of int * string[] -> int
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type Rf_dataptr = delegate of nativeint -> nativeint
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type Rf_PrintValue = delegate of nativeint -> unit
-
-    /// called after Rf_initialize_R on Unix to complete setup of the main loop
-    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type setup_Rmainloop = delegate of unit -> unit
 
     /// optional initialization helper exported by R; mostly used by RInside etc.
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
@@ -148,6 +196,7 @@ module NativeApi =
           memory: Memory.MemoryApi
           symbol: Symbols.SymbolApi
           attribute: Attributes.AttributeApi
+          typeof: Types.TypesApi
           pointers: PointerAccess
           findVar : Rf_findVar
           defineVar : Rf_defineVar
@@ -156,9 +205,8 @@ module NativeApi =
           ncols : Rf_ncols
           allocVector : Rf_allocVector
           allocMatrix : Rf_allocMatrix
-          initializeR : Rf_initialize_R
+          initEmbedded: Rf_initEmbeddedR
           setStartTime : R_setStartTime
-          setupMainloop : setup_Rmainloop
           replDllInit : R_ReplDLLinit
           endEmbeddedR : Rf_endEmbeddedR
           printR: Rf_PrintValue
@@ -226,6 +274,18 @@ module NativeApi =
                     getAttrib = get "Rf_getAttrib"
                     setAttrib = get "Rf_setAttrib"
                 }
+                typeof = {
+                    isNull        = get "Rf_isNull"
+                    isSymbol      = get "Rf_isSymbol"
+                    isLogical     = get "Rf_isLogical"
+                    isInteger     = get "Rf_isInteger"
+                    isReal        = get "Rf_isReal"
+                    isComplex     = get "Rf_isComplex"
+                    isString      = get "Rf_isString"
+                    isList        = get "Rf_isList"
+                    isExpression  = get "Rf_isExpression"
+                    isEnvironment = get "Rf_isEnvironment" 
+                }
                 findVar = get "Rf_findVar"
                 defineVar = get "Rf_defineVar"
                 length = get "Rf_length"
@@ -233,9 +293,8 @@ module NativeApi =
                 ncols = get "Rf_ncols"
                 allocVector = get "Rf_allocVector"
                 allocMatrix = get "Rf_allocMatrix"
-                initializeR = get "Rf_initialize_R"
+                initEmbedded = get "Rf_initEmbeddedR"
                 setStartTime = get "R_setStartTime"
-                setupMainloop = get "setup_Rmainloop"
                 replDllInit = get "R_ReplDLLinit"
                 endEmbeddedR = get "Rf_endEmbeddedR"
                 printR = get "Rf_PrintValue"
@@ -256,6 +315,26 @@ module NativeApi =
         match engine with
         | Running api -> Ok api.Api
         | NotRunning e -> Error (sprintf "Native API not loaded: %s" e)
+
+    /// Convert .NET string array of arguments into a native
+    /// C char* array.
+    let withArgv (args: string[]) (f: int * nativeint -> 'a) =
+        let ptrs =
+            args
+            |> Array.map (fun s -> Marshal.StringToHGlobalAnsi s)
+
+        let argv = Marshal.AllocHGlobal (nativeint (ptrs.Length * sizeof<nativeint>))
+
+        ptrs
+        |> Array.iteri (fun i p ->
+            Marshal.WriteIntPtr(argv, i * sizeof<nativeint>, p)
+        )
+
+        try
+            f (args.Length, argv)
+        finally
+            ptrs |> Array.iter Marshal.FreeHGlobal
+            Marshal.FreeHGlobal argv
 
     let eval expr env = fun engine -> engine.eval.eval.Invoke(expr, env)
     let protect expr = fun engine -> engine.memory.protect.Invoke expr
@@ -297,7 +376,7 @@ module NativeApi =
 
     /// parseVector takes an expression and returns a vector of parsed
     /// expressions.  `status` is a byref int that receives any parser status.
-    let parseVector (expr:sexp) (n:int) (status:byref<int>) (env:sexp) engine =
+    let parseVector (expr:sexp) (n:int) (status:byref<Evaluate.ParseStatus>) (env:sexp) engine =
         engine.Api.eval.parseVector.Invoke(expr, n, &status, env)
 
     let length v = fun running -> running.Api.length.Invoke(v)
@@ -305,11 +384,9 @@ module NativeApi =
     let ncols m = fun running -> running.Api.ncols.Invoke(m)
     let allocVector t len = fun running -> running.Api.allocVector.Invoke(t, len)
     let allocMatrix t r c = fun running -> running.Api.allocMatrix.Invoke(t, r, c)
-    let initialize_R argc argv = fun running -> running.Api.initializeR.Invoke(argc, argv)
     let setStartTime api = api.Api.setStartTime.Invoke()
-    /// call after initialization on Unix-like platforms
-    let setupMainloop api = api.Api.setupMainloop.Invoke()
     /// optional hook used by RInside / R.NET, safe to call unconditionally
     let replDllInit api = api.Api.replDllInit.Invoke()
     let printVal m api = api.Api.printR.Invoke m
+    let startEmbeddedR argv = fun running -> withArgv argv running.Api.initEmbedded.Invoke
     let endEmbeddedR status = fun running -> running.Api.endEmbeddedR.Invoke(status)
