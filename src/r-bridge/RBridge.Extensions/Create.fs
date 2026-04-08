@@ -5,6 +5,10 @@ open System.Runtime.InteropServices
 open RBridge
 open RBridge.SymbolicExpression
 
+/// An environment in R.
+type REnvironment = private REnvironment of RBridge.NativeApi.sexp
+    with member this.Pointer = this |> fun (REnvironment p) -> p
+
 module Create =
 
     let stringVector (engine: NativeApi.RunningEngine) (strings: string seq)  : SymbolicExpression =
@@ -14,68 +18,47 @@ module Create =
             SymbolicExpression.setVectorElement engine { ptr = vec } i { ptr = charPtr }
         { ptr = vec }
 
-    let intVector engine strings  : SymbolicExpression =
-        failwith "not implemented"
+    let intVector (engine: NativeApi.RunningEngine) ints  : SymbolicExpression =
+        let vec = engine.Api.allocVector.Invoke(typeAsInt IntegerVector, Seq.length ints)
+        let ptr = engine.Api.pointers.integerPointer vec
+        for i = 0 to Seq.length ints - 1 do
+            Marshal.WriteInt32(ptr, i * sizeof<int>, Seq.item i ints)
+        { ptr = vec }
 
-    let realVector engine strings  : SymbolicExpression =
-        failwith "not implemented"
+    let realVector (engine: NativeApi.RunningEngine) floats  : SymbolicExpression =
+        let vec = engine.Api.allocVector.Invoke(typeAsInt RealVector, Seq.length floats)
+        let ptr = engine.Api.pointers.integerPointer vec
+        for i = 0 to Seq.length floats - 1 do
+            let bits = System.BitConverter.DoubleToInt64Bits (Seq.item i floats)
+            Marshal.WriteInt64(ptr, i * sizeof<int64>, bits)
+        { ptr = vec }
 
-    let logicalVector (engine: NativeApi.RunningEngine) (strings: bool seq)  : SymbolicExpression =
-        failwith "not implemented"
-        // let vec = engine.Api.allocVector.Invoke(typeAsInt LogicalVector, values.Length)
-        // let ptr = engine.Api.pointers.logicalPointer vec
-        // for i = 0 to values.Length - 1 do
-        //     ptr.[i] <- if values.[i] then 1 else 0
-        // { ptr = vec }
+    let logicalVector (engine: NativeApi.RunningEngine) (bools: bool seq)  : SymbolicExpression =
+        let vec = engine.Api.allocVector.Invoke(typeAsInt LogicalVector, Seq.length bools)
+        let ptr = engine.Api.pointers.integerPointer vec
+        for i = 0 to Seq.length bools - 1 do
+            let v = if Seq.item i bools then 1 else 0
+            Marshal.WriteInt32(ptr, i * sizeof<int>, v)
+        { ptr = vec }
 
     let complexVector engine strings  : SymbolicExpression =
         failwith "not implemented"
 
 
-module REnvironment =
-
-    type REnvironment = private REnvironment of RBridge.NativeApi.sexp
-        with member this.Pointer = this |> fun (REnvironment p) -> p
-
-    let ofNamespace engine sexp =
-        failwith "not implemented"
-
-    /// Return a reference to the R global environment.
-    let globalEnv engine = REnvironment <| NativeApi.globalEnv engine
-
-    let createEmpty (engine: NativeApi.RunningEngine) =
-        let expr = NativeApi.mkString "new.env" engine.Api
-        NativeApi.eval expr (globalEnv engine).Pointer engine.Api
-        |> REnvironment
-
-    /// Convert a symbolic expression pointer to an environment, if it is one.
-    let ofSExp engine sexp =
-        match SymbolicExpression.getType engine sexp with
-        | Environment -> REnvironment sexp.ptr |> Some
-        | _ -> None
-
-    /// Looks up a symbol by name within the specified environment.
-    /// Returns None if not bound.
-    let tryGetValue (engine: NativeApi.RunningEngine) (env: REnvironment) (name: string) =
-        let sym = NativeApi.install name engine.Api
-        let valuePtr = NativeApi.findVar sym env.Pointer engine.Api
-        let foundEx = { ptr = valuePtr }
-        match SymbolicExpression.getType engine foundEx with
-        | Nil -> None
-        | _ -> Some foundEx
-
-
 module PairList =
 
-    let rec build (engine: NativeApi.RunningEngine) (args: (string * SymbolicExpression) list) =
+    let rec build (engine: NativeApi.RunningEngine) (args: (string option * SymbolicExpression) list) =
         match args with
         | [] -> NativeApi.nilValue engine
         | (name, value)::rest ->
             let tail = build engine rest
             let node = engine.Api.construct.cons.Invoke(value.ptr, tail)
-            let nameSexp = NativeApi.mkString name engine.Api
-            let nameSym  = NativeApi.install name engine.Api
-            NativeApi.setAttribute node nameSym nameSexp engine.Api 
+            match name with
+            | Some name ->
+                let sym = engine.Api.symbol.install.Invoke(name)
+                engine.Api.setTag node sym
+            | None ->
+                engine.Api.setTag node engine.Api.nilValue
             node
 
 
@@ -83,7 +66,7 @@ module Evaluate =
 
     /// Evaluate raw R code in the R engine. The code must contain
     /// only a single expression, not multiple expressions.
-    let eval (code:string) (env: REnvironment.REnvironment) (engine: NativeApi.RunningEngine) =
+    let eval (code:string) (env: REnvironment) (engine: NativeApi.RunningEngine) =
 
         let strVec = Create.stringVector engine [| code |]
         let mutable status = NativeApi.Evaluate.ParseStatus.PARSE_NULL
@@ -112,15 +95,50 @@ module Evaluate =
     /// Call a function with named and / or unnamed arguments, formatted as a
     /// paired list.
     let call
-        (rEnv: REnvironment.REnvironment)
+        (rEnv: REnvironment)
         (fn: SymbolicExpression)
-        (args: (string * SymbolicExpression) list)
+        (args: (string option * SymbolicExpression) list)
         (engine: NativeApi.RunningEngine)
         : SymbolicExpression =
         let pairlist = PairList.build engine args
-        let callPtr = engine.Api.construct.lang2.Invoke(fn.ptr, pairlist)
+        let callPtr = engine.Api.construct.allocLang.Invoke(List.length args + 1)
+        engine.Api.setCar callPtr fn.ptr
+        engine.Api.setCdr callPtr pairlist
         let result = NativeApi.eval callPtr rEnv.Pointer engine.Api
         { ptr = result }
+
+
+module REnvironment =
+
+    /// Return a reference to the R global environment.
+    let globalEnv engine = REnvironment <| NativeApi.globalEnv engine
+
+    let ofNamespace (engine: NativeApi.RunningEngine) namespaceName =
+        let code = sprintf "getNamespace(\"%s\")" namespaceName
+        Evaluate.eval code (globalEnv engine) engine
+        |> fun s -> s.ptr
+        |> REnvironment
+    
+    let createEmpty (engine: NativeApi.RunningEngine) =
+        Evaluate.eval "new.env" (globalEnv engine) engine
+        |> fun s -> s.ptr
+        |> REnvironment
+
+    /// Convert a symbolic expression pointer to an environment, if it is one.
+    let ofSExp engine sexp =
+        match SymbolicExpression.getType engine sexp with
+        | Environment -> REnvironment sexp.ptr |> Some
+        | _ -> None
+
+    /// Looks up a symbol by name within the specified environment.
+    /// Returns None if not bound.
+    let tryGetValue (engine: NativeApi.RunningEngine) (env: REnvironment) (name: string) =
+        let sym = NativeApi.install name engine.Api
+        let valuePtr = NativeApi.findVar sym env.Pointer engine.Api
+        let foundEx = { ptr = valuePtr }
+        match SymbolicExpression.getType engine foundEx with
+        | Nil -> None
+        | _ -> Some foundEx
 
 
 module Attributes =
@@ -208,13 +226,13 @@ module Factor =
 module Symbol =
 
     /// Assign a value to a named symbol in R.
-    let setSymbol (name:string) (value:SymbolicExpression) (env: REnvironment.REnvironment) (engine: NativeApi.RunningEngine) : unit =
+    let setSymbol (name:string) (value:SymbolicExpression) (env: REnvironment) (engine: NativeApi.RunningEngine) : unit =
         Logging.debug "setSymbol %s = %A" name value
         let sym = NativeApi.install name engine.Api
         NativeApi.defineVar sym 0n env.Pointer |> ignore
 
     /// Capture the value of a symbol.
-    let getSymbol (name:string) (env: REnvironment.REnvironment) (engine: NativeApi.RunningEngine) : SymbolicExpression option =
+    let getSymbol (name:string) (env: REnvironment) (engine: NativeApi.RunningEngine) : SymbolicExpression option =
         Logging.debug "getSymbol %s" name
         let sym = NativeApi.install name engine.Api
         let v = NativeApi.findVar sym env.Pointer engine.Api

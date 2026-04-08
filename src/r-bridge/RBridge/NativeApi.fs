@@ -30,13 +30,17 @@ module NativeApi =
         [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
         type Rf_allocList = delegate of int -> sexp
 
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_allocLang = delegate of int -> sexp
+
         type ConstructionApi = 
             { cons : Rf_cons
               lcons : Rf_lcons
               lang1 : Rf_lang1
               lang2 : Rf_lang2
               lang3 : Rf_lang3
-              allocList : Rf_allocList }
+              allocList : Rf_allocList
+              allocLang: Rf_allocLang }
 
     module Evaluate =
 
@@ -190,6 +194,20 @@ module NativeApi =
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type R_ReplDLLinit = delegate of unit -> unit
 
+    /// Custom methods implemented in the C shim, which generally
+    /// wrap R macros.
+    module Custom =
+
+        [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
+        extern void rbridge_set_tag(IntPtr node, IntPtr tag)
+
+        [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
+        extern void rbridge_set_car(IntPtr node, IntPtr value)
+
+        [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
+        extern void rbridge_set_cdr(IntPtr node, IntPtr next)
+
+
     type Api =
         { construct: Construction.ConstructionApi
           eval: Evaluate.EvaluateApi
@@ -205,6 +223,9 @@ module NativeApi =
           ncols : Rf_ncols
           allocVector : Rf_allocVector
           allocMatrix : Rf_allocMatrix
+          setTag : nativeint -> nativeint -> unit
+          setCdr : nativeint -> nativeint -> unit
+          setCar : nativeint -> nativeint -> unit
           initEmbedded: Rf_initEmbeddedR
           setStartTime : R_setStartTime
           replDllInit : R_ReplDLLinit
@@ -256,6 +277,7 @@ module NativeApi =
                     lang2 = get "Rf_lang2"
                     lang3 = get "Rf_lang3"
                     allocList = get "Rf_allocList"
+                    allocLang = get "Rf_allocLang"
                 }
                 eval = {
                     eval = get "Rf_eval"
@@ -293,6 +315,9 @@ module NativeApi =
                 ncols = get "Rf_ncols"
                 allocVector = get "Rf_allocVector"
                 allocMatrix = get "Rf_allocMatrix"
+                setTag = fun node tag -> Custom.rbridge_set_tag(node, tag)
+                setCar = fun node value -> Custom.rbridge_set_car(node, value)
+                setCdr = fun node next -> Custom.rbridge_set_cdr(node, next)
                 initEmbedded = get "Rf_initEmbeddedR"
                 setStartTime = get "R_setStartTime"
                 replDllInit = get "R_ReplDLLinit"
@@ -336,6 +361,7 @@ module NativeApi =
             ptrs |> Array.iter Marshal.FreeHGlobal
             Marshal.FreeHGlobal argv
 
+    /// Evaluate an EXPRSXP in a given environment
     let eval expr env = fun engine -> engine.eval.eval.Invoke(expr, env)
     let protect expr = fun engine -> engine.memory.protect.Invoke expr
     let unprotect n = fun engine -> engine.memory.unprotect.Invoke n
