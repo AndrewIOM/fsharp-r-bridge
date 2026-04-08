@@ -11,7 +11,8 @@ semantic types (as R.NET does).
 
 ## Building
 
-The project currently has zero dependencies, and only requires the .NET SDK.
+Aside from a local R install, the project currently has zero .NET dependencies,
+and only requires the .NET SDK.
 
 ```bash
 cd src/r-bridge
