@@ -16,16 +16,29 @@ module ActivePatterns =
         | _ -> None
 
     let internal isA engine sexp typeSexp =
-        if SymbolicExpression.getType engine sexp = typeSexp
-        then Some sexp else None
+        if SymbolicExpression.getType engine sexp = typeSexp then
+            Some sexp
+        else
+            None
 
     // Vectors
-    let (|CharacterVector|_|) engine sexp = isVector engine sexp SymbolicExpression.CharacterVector Extract.extractStringArray
-    let (|LogicalVector|_|) engine sexp = isVector engine sexp SymbolicExpression.LogicalVector Extract.extractLogicalArray
-    let (|IntegerVector|_|) engine sexp = isVector engine sexp SymbolicExpression.IntegerVector Extract.extractIntArray
-    let (|RealVector|_|) engine sexp = isVector engine sexp SymbolicExpression.RealVector Extract.extractFloatArray
-    let (|ComplexVector|_|) engine sexp = isVector engine sexp SymbolicExpression.ComplexVector Extract.extractComplexArray
-    let (|RawVector|_|) engine (sexp: SymbolicExpression) = isVector engine sexp SymbolicExpression.RawVector Extract.extractRawArray
+    let (|CharacterVector|_|) engine sexp =
+        isVector engine sexp SymbolicExpression.CharacterVector Extract.extractStringArray
+
+    let (|LogicalVector|_|) engine sexp =
+        isVector engine sexp SymbolicExpression.LogicalVector Extract.extractLogicalArray
+
+    let (|IntegerVector|_|) engine sexp =
+        isVector engine sexp SymbolicExpression.IntegerVector Extract.extractIntArray
+
+    let (|RealVector|_|) engine sexp =
+        isVector engine sexp SymbolicExpression.RealVector Extract.extractFloatArray
+
+    let (|ComplexVector|_|) engine sexp =
+        isVector engine sexp SymbolicExpression.ComplexVector Extract.extractComplexArray
+
+    let (|RawVector|_|) engine (sexp: SymbolicExpression) =
+        isVector engine sexp SymbolicExpression.RawVector Extract.extractRawArray
     // let (|UntypedVector|_|) engine (sexp: SymbolicExpression) =
     //     asVectorOf engine sexp SymbolicExpression.RawVector Extract.extractRawArray
 
@@ -72,26 +85,41 @@ module ActivePatterns =
 
     // S4 objects
     let (|S4Object|_|) engine sexp =
-        if S4.isS4 engine sexp
-        then S4.tryGetClass engine sexp
-        else None
+        if S4.isS4 engine sexp then
+            S4.tryGetClass engine sexp
+        else
+            None
 
     // Others
     let (|Factor|_|) engine (sexp: SymbolicExpression) =
-        if Factor.isFactor engine sexp
-        then Some sexp
-        else None
+        if Factor.isFactor engine sexp then
+            Some sexp
+        else
+            None
 
-    let (|DataFrame|_|) engine (sexp:SymbolicExpression) =
+    let (|DataFrame|_|) engine (sexp: SymbolicExpression) =
         match SymbolicExpression.getClasses engine sexp with
         | l when Seq.contains "data.frame" l -> Some sexp
         | _ -> None
 
-    let (|Environment|_|) engine (sexp: SymbolicExpression) = isA engine sexp SymbolicExpression.Environment
-    let (|Language|_|) engine (sexp: SymbolicExpression) = isA engine sexp SymbolicExpression.Language
+    let (|Environment|_|) engine (sexp: SymbolicExpression) =
+        isA engine sexp SymbolicExpression.Environment
+
+    let (|Language|_|) engine (sexp: SymbolicExpression) =
+        isA engine sexp SymbolicExpression.Language
+
     let (|List|_|) engine (sexp: SymbolicExpression) = isA engine sexp SymbolicExpression.List
-    let (|PairList|_|) engine (sexp: SymbolicExpression) = isA engine sexp SymbolicExpression.Pairlist
+
+    let (|PairList|_|) engine (sexp: SymbolicExpression) =
+        isA engine sexp SymbolicExpression.Pairlist
+
     let (|Null|_|) engine (sexp: SymbolicExpression) = isA engine sexp SymbolicExpression.Nil
-    let (|Symbol|_|) engine (sexp: SymbolicExpression) = isA engine sexp SymbolicExpression.Symbol
-    let (|BuiltIn|_|) engine (sexp: SymbolicExpression) = isA engine sexp SymbolicExpression.Builtin
-    let (|Special|_|) engine (sexp: SymbolicExpression) = isA engine sexp SymbolicExpression.Special
+
+    let (|Symbol|_|) engine (sexp: SymbolicExpression) =
+        isA engine sexp SymbolicExpression.Symbol
+
+    let (|BuiltIn|_|) engine (sexp: SymbolicExpression) =
+        isA engine sexp SymbolicExpression.Builtin
+
+    let (|Special|_|) engine (sexp: SymbolicExpression) =
+        isA engine sexp SymbolicExpression.Special

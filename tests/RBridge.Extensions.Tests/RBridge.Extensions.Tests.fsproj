@@ -5,11 +5,10 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="NativeApi.fs" />
-    <Compile Include="SExp.fs" />
+    <Compile Include="Create.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/r-bridge/RBridge/RBridge.fsproj" />
+    <ProjectReference Include="../../src/r-bridge/RBridge.Extensions/RBridge.Extensions.fsproj" />
     <PackageReference Include="Expecto.FsCheck" Version="10.2.3" />
   </ItemGroup>
 </Project>

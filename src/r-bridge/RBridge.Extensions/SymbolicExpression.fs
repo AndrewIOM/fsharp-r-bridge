@@ -7,8 +7,12 @@ open RBridge
 module SymbolicExpression =
 
     let getListItem (engine: NativeApi.RunningEngine) index sexp =
-        let ptr = engine.Api.pointers.vectorPointer sexp.ptr
-        let elemPtr = Marshal.ReadIntPtr(ptr, index * IntPtr.Size)
+        let ptr =
+            engine.Api.pointers.vectorPointer sexp.ptr
+
+        let elemPtr =
+            Marshal.ReadIntPtr(ptr, index * IntPtr.Size)
+
         { ptr = elemPtr }
 
     let getListItemByName engine name sexp =
@@ -22,5 +26,4 @@ module SymbolicExpression =
     /// Get the classes associated with a symbolic expression.
     /// If inheritence is active, the child class will appear earlier
     /// than the parent class.
-    let getClasses engine sexp =
-        [ "not implemented" ]
+    let getClasses engine sexp = [ "not implemented" ]

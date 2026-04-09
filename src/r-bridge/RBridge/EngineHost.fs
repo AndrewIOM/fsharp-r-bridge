@@ -8,9 +8,9 @@ module EngineHost =
 
     /// Result of searching for R.
     type RLocation =
-        { DllPath : string
-          RHome : string
-          RBin  : string }
+        { DllPath: string
+          RHome: string
+          RBin: string }
 
     let libFolder () =
         match Environment.OSVersion.Platform with
@@ -18,15 +18,26 @@ module EngineHost =
         | _ -> "lib"
 
     let tryFromRHome home =
-        let homePath = if Directory.Exists home then Some (Path.GetFullPath home) else None
+        let homePath =
+            if Directory.Exists home then
+                Some(Path.GetFullPath home)
+            else
+                None
+
         match homePath with
         | Some homePath ->
             let bin = Path.Combine(homePath, libFolder ())
+
             let dll =
                 Directory.EnumerateFiles(bin, "libR.*", SearchOption.TopDirectoryOnly)
                 |> Seq.tryHead
+
             match dll with
-            | Some file -> Some { DllPath = file; RHome = home; RBin = bin }
+            | Some file ->
+                Some
+                    { DllPath = file
+                      RHome = home
+                      RBin = bin }
             | None -> None
         | None -> None
 
@@ -40,23 +51,36 @@ module EngineHost =
 
         let standardLocations =
             [ if Environment.OSVersion.Platform = PlatformID.Win32NT then
-                    yield Path.Combine(Environment.SpecialFolder.ProgramFiles |> Environment.GetFolderPath, "R")
-                else
-                    yield "/usr/local/lib/R"
-                    yield "/usr/lib/R" ]
-        
+                  yield
+                      Path.Combine(
+                          Environment.SpecialFolder.ProgramFiles
+                          |> Environment.GetFolderPath,
+                          "R"
+                      )
+              else
+                  yield "/usr/local/lib/R"
+                  yield "/usr/lib/R" ]
+
         standardLocations
-        |> List.tryPick (fun baseDir ->
-            if Directory.Exists(baseDir) then
-                let libFolder = libFolder()
-                let path = Path.Combine(baseDir, libFolder)
-                let dll =
-                    Directory.EnumerateFiles(path, "libR.*", SearchOption.TopDirectoryOnly)
-                    |> Seq.tryHead
-                match dll with
-                | Some file -> Some { DllPath = file; RHome = baseDir; RBin = path }
-                | None -> None
-            else None)
+        |> List.tryPick
+            (fun baseDir ->
+                if Directory.Exists(baseDir) then
+                    let libFolder = libFolder ()
+                    let path = Path.Combine(baseDir, libFolder)
+
+                    let dll =
+                        Directory.EnumerateFiles(path, "libR.*", SearchOption.TopDirectoryOnly)
+                        |> Seq.tryHead
+
+                    match dll with
+                    | Some file ->
+                        Some
+                            { DllPath = file
+                              RHome = baseDir
+                              RBin = path }
+                    | None -> None
+                else
+                    None)
 
     /// Try to find R by inspecting environment variables or common
     /// installation locations.
@@ -65,10 +89,12 @@ module EngineHost =
         |> Option.orElseWith tryDefaultPaths
 
     /// Finds the system's R installation from the R_HOME environment
-    /// variable, and from 
+    /// variable, and from
     let findSystemR () : RLocation =
         match tryFindSystemR () with
         | Some loc -> loc
         | None ->
-            let msg = "Could not locate a system R installation. Ensure R is installed and R_HOME is set or accessible."
+            let msg =
+                "Could not locate a system R installation. Ensure R is installed and R_HOME is set or accessible."
+
             raise (Exception(msg))

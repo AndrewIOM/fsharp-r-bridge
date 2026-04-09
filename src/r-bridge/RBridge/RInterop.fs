@@ -11,7 +11,10 @@ module RInterop =
     module Locale =
 
         let internal saveLocaleEnv () =
-            [ "LANG"; "LC_ALL"; "LC_CTYPE"; "LC_MESSAGES" ]
+            [ "LANG"
+              "LC_ALL"
+              "LC_CTYPE"
+              "LC_MESSAGES" ]
             |> List.map (fun k -> k, Environment.GetEnvironmentVariable k)
 
         let internal setEnvironment (saved: (string * string) list) =
@@ -29,21 +32,32 @@ module RInterop =
     let SIGABRT = 6
 
     let dumpSignal label =
-        let current = signal(SIGABRT, nativeint -1) // query mode
+        let current = signal (SIGABRT, nativeint -1) // query mode
         printfn "%s: SIGABRT handler = %A" label current
-        ignore (signal(SIGABRT, current)) // restore
+        ignore (signal (SIGABRT, current)) // restore
 
     /// initialise the engine (e.g. load DLL, set environment etc.)
-    let initialiseAt (loc:EngineHost.RLocation) : NativeApi.REngine =
+    let initialiseAt (loc: EngineHost.RLocation) : NativeApi.REngine =
 
         // set R_HOME if not already
         if String.IsNullOrEmpty(Environment.GetEnvironmentVariable("R_HOME")) then
             Environment.SetEnvironmentVariable("R_HOME", loc.RHome)
 
         // ensure the library/bin directory is on PATH
-        let oldPath = Environment.GetEnvironmentVariable("PATH")
-        let sep = if Environment.OSVersion.Platform = PlatformID.Win32NT then ";" else ":"
-        let newPath = loc.RBin + sep + (if isNull oldPath then "" else oldPath)
+        let oldPath =
+            Environment.GetEnvironmentVariable("PATH")
+
+        let sep =
+            if Environment.OSVersion.Platform = PlatformID.Win32NT then
+                ";"
+            else
+                ":"
+
+        let newPath =
+            loc.RBin
+            + sep
+            + (if isNull oldPath then "" else oldPath)
+
         Environment.SetEnvironmentVariable("PATH", newPath)
 
         // load the R API and cache delegates
@@ -60,17 +74,15 @@ module RInterop =
 
         // R expects argv[0] to be program name; supply a dummy value
         // build a minimal argv similar to rdotnet's BuildRArgv
-        let args : string[] =
-            [|
-                "REmbeddedFSharpBridge"
-                "--quiet"
-                "--gui=none"
-                "--no-save"
-                "--no-restore-data"
-                "--no-site-file"
-                "--no-init-file"
-            |]
-        
+        let args: string [] =
+            [| "REmbeddedFSharpBridge"
+               "--quiet"
+               "--gui=none"
+               "--no-save"
+               "--no-restore-data"
+               "--no-site-file"
+               "--no-init-file" |]
+
         let savedLocale = Locale.saveLocaleEnv ()
         Logging.debug "Saved locale: %A" savedLocale
         printfn "Culture before restore = %A" System.Globalization.CultureInfo.CurrentCulture
@@ -87,13 +99,13 @@ module RInterop =
         // update nilValue and globalEnv now that R has been initialised;
         // previous reads returned 0 because the globals hadn't been set yet.
         Logging.debug "refreshing environment values"
+
         NativeApi.refreshEnvironmentValues engine
         |> NativeApi.Running
 
     let initialise () =
-        let loc = EngineHost.findSystemR()
+        let loc = EngineHost.findSystemR ()
         Logging.debug "found R install: %A" loc
         initialiseAt loc
 
-    let shutdown engine : unit =
-        NativeApi.endEmbeddedR 0 engine
+    let shutdown engine : unit = NativeApi.endEmbeddedR 0 engine
