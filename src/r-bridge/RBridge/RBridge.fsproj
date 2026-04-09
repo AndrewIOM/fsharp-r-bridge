@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>RBridge</RootNamespace>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="EngineHost.fs" />
@@ -10,6 +11,9 @@
     <Compile Include="RInterop.fs" />
     <Compile Include="SExp.fs" />
     <Compile Include="Devices.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="8.0.100" />
   </ItemGroup>
   <Import Project="native/native.props" />
 </Project>
