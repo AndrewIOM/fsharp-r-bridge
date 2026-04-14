@@ -38,9 +38,6 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 10.0.x
-    - name: Set up MSVC environment
-      uses: ilammy/msvc-dev-cmd@v1
-      if: matrix.os == 'windows-latest'
     - name: Restore tool dependencies
       run: dotnet tool restore
     - name: FAKE build

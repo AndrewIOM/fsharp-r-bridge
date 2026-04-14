@@ -22,6 +22,5 @@
 
     <!-- Windows -->
     <Exec Condition="'$(OS)' == 'Windows_NT'"
-          Command="cl /LD &quot;$(NativeDir)\native_api.c&quot; /Fe:&quot;$(OutputPath)$(NativeLibName).dll&quot; /I&quot;$(RInclude)&quot; /link /LIBPATH:&quot;$(RLib)&quot; R.lib /D R_INTERFACE_PTRS" />
-  </Target>
+          Command="gcc -shared -fPIC &quot;$(NativeDir)\native_api.c&quot; -o &quot;$(OutputPath)$(NativeLibName).dll&quot; -I&quot;$(RInclude)&quot; -L&quot;$(RLib)&quot; -lR -DR_INTERFACE_PTRS" />  </Target>
 </Project>
