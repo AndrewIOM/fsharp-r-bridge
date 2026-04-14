@@ -84,6 +84,22 @@ module PairList =
 
             node
 
+module Promise =
+
+    /// Forces a promise to evaluate. If the expression is
+    /// not a promise, passes through unmodified.
+    let force (engine: NativeApi.RunningEngine) sexp =
+        match SymbolicExpression.getType engine sexp with
+        | Promise ->
+            if sexp.ptr = engine.Api.missingArg then
+                failwith "Cannot force a missing argument"
+
+            let forcedPtr =
+                NativeApi.eval sexp.ptr engine.Api.globalEnv engine.Api
+
+            { ptr = forcedPtr }
+        | _ -> sexp
+
 
 module Evaluate =
 
@@ -98,17 +114,6 @@ module Evaluate =
 
         let exprVec =
             engine.Api.eval.parseVector.Invoke(strVec.ptr, -1, &status, NativeApi.nilValue engine)
-
-        printfn "str is %A" (SymbolicExpression.getType engine strVec)
-
-        printfn
-            "parseVector.Invoke = %A"
-            (engine
-                .Api
-                .eval
-                .parseVector
-                .GetType()
-                .GetMethod("Invoke"))
 
         if status <> NativeApi.Evaluate.ParseStatus.PARSE_OK then
             failwithf "Parse error (%A) in expression: %s" status code
@@ -155,15 +160,14 @@ module REnvironment =
         REnvironment <| NativeApi.globalEnv engine
 
     let ofNamespace (engine: NativeApi.RunningEngine) namespaceName =
-        let code =
-            sprintf "getNamespace(\"%s\")" namespaceName
+        let name =
+            NativeApi.mkString namespaceName engine.Api
 
-        Evaluate.eval code (globalEnv engine) engine
-        |> fun s -> s.ptr
-        |> REnvironment
+        let nsPtr = engine.Api.findNamespace.Invoke name
+        REnvironment nsPtr
 
     let createEmpty (engine: NativeApi.RunningEngine) =
-        Evaluate.eval "new.env" (globalEnv engine) engine
+        Evaluate.eval "new.env()" (globalEnv engine) engine
         |> fun s -> s.ptr
         |> REnvironment
 
@@ -175,18 +179,20 @@ module REnvironment =
 
     /// Looks up a symbol by name within the specified environment.
     /// Returns None if not bound.
+    /// Returns an R promise (Some) if bound. To obtain the true value,
+    /// force the promise.
     let tryGetValue (engine: NativeApi.RunningEngine) (env: REnvironment) (name: string) =
         let sym = NativeApi.install name engine.Api
 
         let valuePtr =
-            NativeApi.findVar sym env.Pointer engine.Api
+            NativeApi.getVarEx sym env.Pointer false engine.Api.unboundVal engine.Api
 
-        let foundEx = { ptr = valuePtr }
+        printfn "R_getVarEx(%s): ptr=%A" name (SymbolicExpression.getType engine { ptr = valuePtr })
 
-        match SymbolicExpression.getType engine foundEx with
-        | Nil -> None
-        | _ -> Some foundEx
-
+        if valuePtr = engine.Api.unboundVal then
+            None
+        else
+            Some { ptr = valuePtr }
 
 module Attributes =
 
@@ -303,7 +309,7 @@ module Symbol =
         let sym = NativeApi.install name engine.Api
 
         let v =
-            NativeApi.findVar sym env.Pointer engine.Api
+            NativeApi.getVar sym env.Pointer engine.Api
 
         if v = 0n then
             None

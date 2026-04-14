@@ -7,6 +7,10 @@ module Extract =
     open System.Runtime.InteropServices
     open System
 
+    let extractChar (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) : string =
+        let ptr = engine.Api.pointers.charPointer sexp.ptr
+        Marshal.PtrToStringAnsi ptr
+
     let extractIntArray (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) : int [] =
         let len = NativeApi.length sexp.ptr engine
 

@@ -9,9 +9,12 @@ and a functional style, rather than a fork. It provides
 structural access into the R embedded API from F#, but does not include full
 semantic types (as R.NET does).
 
+The RBridge is intended to bind only to the stable public C API for R, which
+is currently being defined (see: R docs [Moving into C API compliance](https://cran.r-project.org/doc/manuals/R-exts.html#Moving-into-C-API-compliance)).
+
 ## Building
 
-Aside from a local R install, the project currently has zero .NET dependencies,
+Aside from a local R install (v4.5.0+), the project currently has zero .NET dependencies,
 and only requires the .NET SDK.
 
 ```bash

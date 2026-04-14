@@ -6,6 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Create.fs" />
+    <Compile Include="Evaluate.fs" />
+    <Compile Include="SymbolicExpression.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/r-bridge/RBridge.Extensions/RBridge.Extensions.fsproj" />

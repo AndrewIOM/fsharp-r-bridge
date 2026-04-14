@@ -33,6 +33,9 @@ module NativeApi =
         [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
         type Rf_allocLang = delegate of int -> sexp
 
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type R_NewEnv = delegate of IntPtr * IntPtr * IntPtr -> IntPtr
+
         type ConstructionApi =
             { cons: Rf_cons
               lcons: Rf_lcons
@@ -40,7 +43,8 @@ module NativeApi =
               lang2: Rf_lang2
               lang3: Rf_lang3
               allocList: Rf_allocList
-              allocLang: Rf_allocLang }
+              allocLang: Rf_allocLang
+              newEnv: R_NewEnv }
 
     module Evaluate =
 
@@ -134,6 +138,21 @@ module NativeApi =
         [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
         type Rf_isEnvironment = delegate of nativeint -> int
 
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isFunction = delegate of nativeint -> int
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isPrimitive = delegate of nativeint -> int
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isLanguage = delegate of nativeint -> int
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isPairList = delegate of nativeint -> int
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isVector = delegate of nativeint -> int
+
         type TypesApi =
             { isNull: Rf_isNull
               isSymbol: Rf_isSymbol
@@ -144,11 +163,24 @@ module NativeApi =
               isString: Rf_isString
               isList: Rf_isList
               isExpression: Rf_isExpression
-              isEnvironment: Rf_isEnvironment }
-
+              isEnvironment: Rf_isEnvironment
+              isFunction: Rf_isFunction
+              isPrimitive: Rf_isPrimitive
+              isLanguage: Rf_isLanguage
+              isPairList: Rf_isPairList
+              isVector: Rf_isVector }
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type Rf_findVar = delegate of sexp * sexp -> sexp
+    type R_MissingArg = delegate of sexp -> sexp
+
+    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+    type R_FindNamespace = delegate of sexp -> sexp
+
+    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+    type R_getVar = delegate of sexp * sexp * int -> sexp
+
+    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+    type R_getVarEx = delegate of sexp * sexp * int * sexp -> sexp
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type Rf_defineVar = delegate of sexp * sexp * sexp -> sexp
@@ -211,7 +243,9 @@ module NativeApi =
           attribute: Attributes.AttributeApi
           typeof: Types.TypesApi
           pointers: PointerAccess
-          findVar: Rf_findVar
+          findNamespace: R_FindNamespace
+          getVar: R_getVar
+          getVarEx: R_getVarEx
           defineVar: Rf_defineVar
           length: Rf_length
           nrows: Rf_nrows
@@ -226,7 +260,10 @@ module NativeApi =
           replDllInit: R_ReplDLLinit
           endEmbeddedR: Rf_endEmbeddedR
           printR: Rf_PrintValue
+          missingArg: sexp
           globalEnv: sexp
+          emptyEnv: sexp
+          unboundVal: sexp
           nilValue: sexp }
 
     and PointerAccess =
@@ -244,22 +281,14 @@ module NativeApi =
     and RunningEngine = { Api: Api; LibHandle: nativeint }
 
     let loadApi (dllPath: string) =
-        // load the shared library and bind the small set of symbols we need
-        System.Console.WriteLine(sprintf "NativeApi: loading library '%s'" dllPath)
         let handle = NativeLibrary.Load(dllPath)
-        // libHandle <- Some handle
-        System.Console.WriteLine(sprintf "NativeApi: library loaded, handle=%A" handle)
 
         let get (name: string) : 'T =
-            System.Console.WriteLine(sprintf "NativeApi: resolving %s" name)
             let ptr = NativeLibrary.GetExport(handle, name)
-            System.Console.WriteLine(sprintf "NativeApi: got ptr for %s = %A" name ptr)
             Marshal.GetDelegateForFunctionPointer(ptr, typeof<'T>) :?> 'T
-        // initial nilValue will be read after R is initialized; for now store
-        // zero so we can update later via refreshNilValue.
+
         let nilVal = 0n
         let dataptr: Rf_dataptr = get "DATAPTR"
-        System.Console.WriteLine(sprintf "NativeApi: initial nilValue placeholder = %A" nilVal)
 
         { Api =
               { construct =
@@ -269,7 +298,8 @@ module NativeApi =
                       lang2 = get "Rf_lang2"
                       lang3 = get "Rf_lang3"
                       allocList = get "Rf_allocList"
-                      allocLang = get "Rf_allocLang" }
+                      allocLang = get "Rf_allocLang"
+                      newEnv = get "R_NewEnv" }
                 eval =
                     { eval = get "Rf_eval"
                       parseVector = get "R_ParseVector" }
@@ -293,8 +323,16 @@ module NativeApi =
                       isString = get "Rf_isString"
                       isList = get "Rf_isList"
                       isExpression = get "Rf_isExpression"
-                      isEnvironment = get "Rf_isEnvironment" }
-                findVar = get "Rf_findVar"
+                      isEnvironment = get "Rf_isEnvironment"
+                      isFunction = get "Rf_isFunction"
+                      isPrimitive = get "Rf_isPrimitive"
+                      isLanguage = get "Rf_isLanguage"
+                      isPairList = get "Rf_isPairList"
+                      isVector = get "Rf_isVector" }
+                missingArg = 0n
+                findNamespace = get "R_FindNamespace"
+                getVar = get "R_getVar"
+                getVarEx = get "R_getVarEx"
                 defineVar = get "Rf_defineVar"
                 length = get "Rf_length"
                 nrows = get "Rf_nrows"
@@ -309,7 +347,9 @@ module NativeApi =
                 replDllInit = get "R_ReplDLLinit"
                 endEmbeddedR = get "Rf_endEmbeddedR"
                 printR = get "Rf_PrintValue"
-                globalEnv = 0n
+                globalEnv = nilVal
+                emptyEnv = nilVal
+                unboundVal = nilVal
                 nilValue = nilVal
                 pointers =
                     { integerPointer = dataptr.Invoke
@@ -357,8 +397,14 @@ module NativeApi =
     let install name =
         fun engine -> engine.symbol.install.Invoke name
 
-    let findVar sym env =
-        fun engine -> engine.findVar.Invoke(sym, env)
+    /// Get a variable without environment inheritance
+    let getVar sym env =
+        fun engine -> engine.getVar.Invoke(sym, env, 0)
+
+    let getVarEx sym (env: sexp) inherits ifNotFound =
+        fun engine ->
+            let inherits = if inherits = true then 1 else 0
+            engine.getVarEx.Invoke(sym, env, inherits, ifNotFound)
 
     let defineVar sym value env =
         fun engine -> engine.defineVar.Invoke(sym, value, env)
@@ -378,22 +424,36 @@ module NativeApi =
         let nilPtrLoc =
             NativeLibrary.GetExport(run.LibHandle, "R_NilValue")
 
-        System.Console.WriteLine(sprintf "NativeApi: R_NilValue address = %A" nilPtrLoc)
-        let nilVal = Marshal.ReadIntPtr(nilPtrLoc)
-        System.Console.WriteLine(sprintf "NativeApi: refreshed nilValue = %A" nilVal)
+        let nilVal = Marshal.ReadIntPtr nilPtrLoc
 
         let envPtrLoc =
             NativeLibrary.GetExport(run.LibHandle, "R_GlobalEnv")
 
-        System.Console.WriteLine(sprintf "NativeApi: R_GlobalEnv address = %A" envPtrLoc)
-        let envVal = Marshal.ReadIntPtr(envPtrLoc)
-        System.Console.WriteLine(sprintf "NativeApi: refreshed globalEnv = %A" envVal)
+        let envVal = Marshal.ReadIntPtr envPtrLoc
+
+        let missingPtrLoc =
+            NativeLibrary.GetExport(run.LibHandle, "R_MissingArg")
+
+        let missingVal = Marshal.ReadIntPtr missingPtrLoc
+
+        let emptyEnvPtrLoc =
+            NativeLibrary.GetExport(run.LibHandle, "R_EmptyEnv")
+
+        let emptyEnv = Marshal.ReadIntPtr emptyEnvPtrLoc
+
+        let unboundPtrLoc =
+            NativeLibrary.GetExport(run.LibHandle, "R_UnboundValue")
+
+        let unboundValue = Marshal.ReadIntPtr unboundPtrLoc
 
         { run with
               Api =
                   { run.Api with
                         nilValue = nilVal
-                        globalEnv = envVal } }
+                        globalEnv = envVal
+                        emptyEnv = emptyEnv
+                        unboundVal = unboundValue
+                        missingArg = missingVal } }
 
     /// allocate an UTF8 null-terminated string and call Rf_mkString.
     /// Returns both the resulting sexp and the native pointer so that the

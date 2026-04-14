@@ -50,11 +50,34 @@ module SymbolicExpression =
         | RawVector -> 24
         | List -> 19
 
+    let isPromise (api: NativeApi.Types.TypesApi) sexp =
+        let p = sexp.ptr
+
+        not (
+            api.isNull.Invoke p <> 0
+            || api.isSymbol.Invoke p <> 0
+            || api.isEnvironment.Invoke p <> 0
+            || api.isFunction.Invoke p <> 0
+            || api.isLanguage.Invoke p <> 0
+            || api.isPairList.Invoke p <> 0
+            || api.isExpression.Invoke p <> 0
+            || api.isVector.Invoke p <> 0
+        )
+
     let getType (engine: RBridge.NativeApi.RunningEngine) (sexp: SymbolicExpression) : SexpType =
         if engine.Api.typeof.isNull.Invoke sexp.ptr <> 0 then
             Nil
         elif engine.Api.typeof.isSymbol.Invoke sexp.ptr <> 0 then
             Symbol
+        elif engine.Api.typeof.isPairList.Invoke sexp.ptr <> 0 then
+            Pairlist
+        elif engine.Api.typeof.isFunction.Invoke sexp.ptr <> 0 then
+            if engine.Api.typeof.isPrimitive.Invoke sexp.ptr <> 0 then
+                Builtin // Could be Special OR Built-in, but cannot tell with API
+            else
+                Closure
+        elif engine.Api.typeof.isLanguage.Invoke sexp.ptr <> 0 then
+            Language
         elif engine.Api.typeof.isEnvironment.Invoke sexp.ptr
              <> 0 then
             Environment
@@ -73,6 +96,8 @@ module SymbolicExpression =
         elif engine.Api.typeof.isExpression.Invoke sexp.ptr
              <> 0 then
             List
+        elif isPromise engine.Api.typeof sexp then
+            Promise
         else
             Any
 
