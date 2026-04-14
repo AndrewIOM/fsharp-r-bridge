@@ -7,20 +7,20 @@
     <NativeDir>$(MSBuildThisFileDirectory)</NativeDir>
   </PropertyGroup>
   <Target Name="BuildNativeLibrary" AfterTargets="Build">
-    <MakeDir Directories="$(TargetDir)" />
+    <MakeDir Directories="$(OutputPath)" />
 
     <!-- macOS -->
     <Exec Condition="'$(OS)' != 'Windows_NT' AND 
                      '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'True'"
-          Command="clang -dynamiclib '$(NativeDir)/native_api.c' -o '$(TargetDir)/lib$(NativeLibName).dylib' -I'$(RInclude)' -L'$(RLib)' -lR -DR_INTERFACE_PTRS" />
+          Command="clang -dynamiclib '$(NativeDir)/native_api.c' -o '$(OutputPath)/lib$(NativeLibName).dylib' -I'$(RInclude)' -L'$(RLib)' -lR -DR_INTERFACE_PTRS" />
 
     <!-- Linux -->
     <Exec Condition="'$(OS)' != 'Windows_NT' AND 
                      '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'True'"
-          Command="gcc -shared -fPIC '$(NativeDir)/native_api.c' -o '$(TargetDir)/lib$(NativeLibName).so' -I'$(RInclude)' -L'$(RLib)' -lR -DR_INTERFACE_PTRS" />
+          Command="gcc -shared -fPIC '$(NativeDir)/native_api.c' -o '$(OutputPath)/lib$(NativeLibName).so' -I'$(RInclude)' -L'$(RLib)' -lR -DR_INTERFACE_PTRS" />
 
     <!-- Windows -->
     <Exec Condition="'$(OS)' == 'Windows_NT'"
-          Command="cl /LD '$(NativeDir)\native_api.c' /Fe'$(TargetDir)\$(NativeLibName).dll' /I'$(RInclude)' /link /LIBPATH:'$(RLib)' R.lib /D R_INTERFACE_PTRS" />
+          Command="cl /LD '$(NativeDir)\native_api.c' /Fe'$(OutputPath)\$(NativeLibName).dll' /I'$(RInclude)' /link /LIBPATH:'$(RLib)' R.lib /D R_INTERFACE_PTRS" />
   </Target>
 </Project>

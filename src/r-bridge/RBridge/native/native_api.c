@@ -14,6 +14,10 @@ void rbridge_set_write_console(void (*cb)(const char*, int)) {
     ptr_R_WriteConsole = my_write_console;
 }
 
+int rbridge_typeof(SEXP x) {
+    return TYPEOF(x);
+}
+
 // Set the CAR (value) of a pairlist node
 void rbridge_set_car(SEXP node, SEXP value) {
     SETCAR(node, value);

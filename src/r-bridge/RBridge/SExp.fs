@@ -69,15 +69,19 @@ module SymbolicExpression =
             Nil
         elif engine.Api.typeof.isSymbol.Invoke sexp.ptr <> 0 then
             Symbol
+        elif engine.Api.typeof.isLanguage.Invoke sexp.ptr <> 0 then
+            Language
         elif engine.Api.typeof.isPairList.Invoke sexp.ptr <> 0 then
             Pairlist
         elif engine.Api.typeof.isFunction.Invoke sexp.ptr <> 0 then
             if engine.Api.typeof.isPrimitive.Invoke sexp.ptr <> 0 then
-                Builtin // Could be Special OR Built-in, but cannot tell with API
+                let t = NativeApi.typeOf sexp.ptr engine
+
+                if t = 7 then Special
+                elif t = 8 then Builtin
+                else Any // Shouldn't happen
             else
                 Closure
-        elif engine.Api.typeof.isLanguage.Invoke sexp.ptr <> 0 then
-            Language
         elif engine.Api.typeof.isEnvironment.Invoke sexp.ptr
              <> 0 then
             Environment
@@ -96,6 +100,8 @@ module SymbolicExpression =
         elif engine.Api.typeof.isExpression.Invoke sexp.ptr
              <> 0 then
             List
+        elif (NativeApi.typeOf sexp.ptr engine) = 9 then
+            Char
         elif isPromise engine.Api.typeof sexp then
             Promise
         else

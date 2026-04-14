@@ -17,9 +17,9 @@ let engine =
 
 let globalEnv = REnvironment.globalEnv engine
 
-let result1 = Evaluate.eval "1 + 1" globalEnv engine
+let result1 = Evaluate.tryEval "sqrt(49)" globalEnv engine |> Result.toOption |> Option.get
 let t1 = SymbolicExpression.getType engine result1
-show "Type of (1+1)" t1
+show "Type of sqrt(65)" t1
 
 Extract.extractFloatArray engine result1
 

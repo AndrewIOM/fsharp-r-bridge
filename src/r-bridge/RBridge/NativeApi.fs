@@ -55,15 +55,15 @@ module NativeApi =
             | PARSE_ERROR = 3
             | PARSE_EOF = 4
 
-        /// TODO Replace with R_tryEval
+        /// Returns a NULL pointer if evaluating the expression results in a jump to top level.
         [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-        type Rf_eval = delegate of sexp * sexp -> sexp
+        type R_tryEvalSilent = delegate of sexp * sexp * byref<int> -> sexp
 
         [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
         type R_ParseVector = delegate of sexp * int * byref<ParseStatus> * sexp -> sexp
 
         type EvaluateApi =
-            { eval: Rf_eval
+            { tryEval: R_tryEvalSilent
               parseVector: R_ParseVector }
 
     module Memory =
@@ -154,7 +154,8 @@ module NativeApi =
         type Rf_isVector = delegate of nativeint -> int
 
         type TypesApi =
-            { isNull: Rf_isNull
+            { getType: sexp -> int
+              isNull: Rf_isNull
               isSymbol: Rf_isSymbol
               isLogical: Rf_isLogical
               isInteger: Rf_isInteger
@@ -234,6 +235,9 @@ module NativeApi =
         [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
         extern void rbridge_set_cdr(IntPtr node, IntPtr next)
 
+        [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
+        extern int rbridge_typeof(nativeint sexp)
+
 
     type Api =
         { construct: Construction.ConstructionApi
@@ -301,7 +305,7 @@ module NativeApi =
                       allocLang = get "Rf_allocLang"
                       newEnv = get "R_NewEnv" }
                 eval =
-                    { eval = get "Rf_eval"
+                    { tryEval = get "R_tryEvalSilent"
                       parseVector = get "R_ParseVector" }
                 memory =
                     { protect = get "Rf_protect"
@@ -314,7 +318,8 @@ module NativeApi =
                     { getAttrib = get "Rf_getAttrib"
                       setAttrib = get "Rf_setAttrib" }
                 typeof =
-                    { isNull = get "Rf_isNull"
+                    { getType = Custom.rbridge_typeof
+                      isNull = get "Rf_isNull"
                       isSymbol = get "Rf_isSymbol"
                       isLogical = get "Rf_isLogical"
                       isInteger = get "Rf_isInteger"
@@ -385,8 +390,17 @@ module NativeApi =
             Marshal.FreeHGlobal argv
 
     /// Evaluate an EXPRSXP in a given environment
-    let eval expr env =
-        fun engine -> engine.eval.eval.Invoke(expr, env)
+    let tryEval expr env =
+        fun engine ->
+            let mutable err = 0
+
+            let resultPtr =
+                engine.Api.eval.tryEval.Invoke(expr, env, &err)
+
+            if err <> 0 then
+                Error resultPtr
+            else
+                Ok resultPtr
 
     let protect expr =
         fun engine -> engine.memory.protect.Invoke expr
@@ -470,6 +484,9 @@ module NativeApi =
 
     let length v =
         fun running -> running.Api.length.Invoke(v)
+
+    let typeOf v =
+        fun running -> running.Api.typeof.getType v
 
     let nrows m =
         fun running -> running.Api.nrows.Invoke(m)

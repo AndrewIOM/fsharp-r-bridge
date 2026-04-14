@@ -13,4 +13,10 @@
     <ProjectReference Include="../../src/r-bridge/RBridge.Extensions/RBridge.Extensions.fsproj" />
     <PackageReference Include="Expecto.FsCheck" Version="10.2.3" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\src\r-bridge\RBridge\bin\$(Configuration)\**\*rbridge-native*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>%(Filename)%(Extension)</Link>
+    </None>
+  </ItemGroup>
 </Project>

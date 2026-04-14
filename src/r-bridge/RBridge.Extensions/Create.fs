@@ -95,7 +95,8 @@ module Promise =
                 failwith "Cannot force a missing argument"
 
             let forcedPtr =
-                NativeApi.eval sexp.ptr engine.Api.globalEnv engine.Api
+                NativeApi.tryEval sexp.ptr engine.Api.globalEnv engine
+                |> Result.defaultWith (fun _ -> failwith "Could not force expression")
 
             { ptr = forcedPtr }
         | _ -> sexp
@@ -105,7 +106,7 @@ module Evaluate =
 
     /// Evaluate raw R code in the R engine. The code must contain
     /// only a single expression, not multiple expressions.
-    let eval (code: string) (env: REnvironment) (engine: NativeApi.RunningEngine) =
+    let tryEval (code: string) (env: REnvironment) (engine: NativeApi.RunningEngine) =
 
         let strVec = Create.stringVector engine [| code |]
 
@@ -126,19 +127,18 @@ module Evaluate =
         let firstExpr =
             SymbolicExpression.getVectorElement engine { ptr = exprVec } 0
 
-        let result =
-            NativeApi.eval firstExpr.ptr env.Pointer engine.Api
-
-        { ptr = result }
+        match NativeApi.tryEval firstExpr.ptr env.Pointer engine with
+        | Ok ptr -> Ok { ptr = ptr }
+        | Error errPtr -> Error "R evaluation error"
 
     /// Call a function with named and / or unnamed arguments, formatted as a
     /// paired list.
-    let call
+    let tryCall
         (rEnv: REnvironment)
         (fn: SymbolicExpression)
         (args: (string option * SymbolicExpression) list)
         (engine: NativeApi.RunningEngine)
-        : SymbolicExpression =
+        : Result<SymbolicExpression, string> =
         let pairlist = PairList.build engine args
 
         let callPtr =
@@ -147,10 +147,9 @@ module Evaluate =
         engine.Api.setCar callPtr fn.ptr
         engine.Api.setCdr callPtr pairlist
 
-        let result =
-            NativeApi.eval callPtr rEnv.Pointer engine.Api
-
-        { ptr = result }
+        match NativeApi.tryEval callPtr rEnv.Pointer engine with
+        | Ok ptr -> Ok { ptr = ptr }
+        | Error errPtr -> Error "R evaluation error"
 
 
 module REnvironment =
@@ -167,7 +166,8 @@ module REnvironment =
         REnvironment nsPtr
 
     let createEmpty (engine: NativeApi.RunningEngine) =
-        Evaluate.eval "new.env()" (globalEnv engine) engine
+        Evaluate.tryEval "new.env()" (globalEnv engine) engine
+        |> Result.defaultWith (fun _ -> failwith "Error making new environment")
         |> fun s -> s.ptr
         |> REnvironment
 
@@ -243,7 +243,8 @@ module S4 =
 
                     classNames |> Seq.tryHead
                 | _ -> None)
-        |> Option.map (fun mainClass -> Evaluate.eval (sprintf "getClass('%s')" mainClass) globalEnv engine)
+        |> Option.map (fun mainClass -> Evaluate.tryEval (sprintf "getClass('%s')" mainClass) globalEnv engine)
+        |> Option.bind Result.toOption
         |> Option.bind (fun classDef -> SymbolicExpression.tryGetAttribute classDef "slots" engine)
         |> Option.bind
             (fun slotsSexp ->
