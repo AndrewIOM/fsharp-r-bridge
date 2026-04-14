@@ -1,11 +1,12 @@
 <Project>
   <PropertyGroup>
     <RHome>$(R_HOME)</RHome>
-    <RInclude>$(RHome)/include</RInclude>
-    <RLib>$(RHome)/lib</RLib>
+    <RInclude>$(RHome)\include</RInclude>
+    <RLib>$(RHome)\lib</RLib>
     <NativeLibName>rbridge-native</NativeLibName>
     <NativeDir>$(MSBuildThisFileDirectory)</NativeDir>
   </PropertyGroup>
+
   <Target Name="BuildNativeLibrary" AfterTargets="Build">
     <MakeDir Directories="$(OutputPath)" />
 
@@ -21,6 +22,6 @@
 
     <!-- Windows -->
     <Exec Condition="'$(OS)' == 'Windows_NT'"
-          Command="cl /LD '$(NativeDir)\native_api.c' /Fe'$(OutputPath)\$(NativeLibName).dll' /I'$(RInclude)' /link /LIBPATH:'$(RLib)' R.lib /D R_INTERFACE_PTRS" />
+          Command="cl /LD &quot;$(NativeDir)\native_api.c&quot; /Fe:&quot;$(OutputPath)$(NativeLibName).dll&quot; /I&quot;$(RInclude)&quot; /link /LIBPATH:&quot;$(RLib)&quot; R.lib /D R_INTERFACE_PTRS" />
   </Target>
 </Project>
