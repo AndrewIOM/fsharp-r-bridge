@@ -96,7 +96,13 @@ Target.create "CheckFormat" (fun _ ->
 
 Target.create "Build" (fun _ ->
     Trace.log " --- Building the library --- "
-    Fake.DotNet.DotNet.build id "rbridge.sln")
+    DotNet.build (fun p ->
+        { p with
+            Configuration = DotNet.BuildConfiguration.Debug
+            MSBuildParams =
+                { p.MSBuildParams with
+                    Properties = [ "Platform", "Any CPU" ] } })
+        "rbridge.sln" )
 
 // --------------------------------------------------------------------------------------
 // Run the unit tests using test runner & kill test runner when complete
@@ -156,37 +162,6 @@ Target.create "NuGet" (fun _ ->
                     { p.MSBuildParams with
                         Properties = properties } })
         ("rbridge.sln"))
-
-//--------------------------------------------------------------------------------------
-//Generate the documentation
-
-Target.create "DocsMeta" (fun _ ->
-    [ "<Project xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">"
-      "<PropertyGroup>"
-      sprintf "<Copyright>%s</Copyright>" copyright
-      sprintf "<Authors>%s</Authors>" authors
-      sprintf "<PackageProjectUrl>%s</PackageProjectUrl>" packageProjectUrl
-      sprintf "<RepositoryUrl>%s</RepositoryUrl>" repositoryUrl
-      sprintf "<PackageLicense>%s</PackageLicense>" license
-      sprintf "<PackageReleaseNotes>%s</PackageReleaseNotes>" (List.head release.Notes)
-      sprintf "<PackageIconUrl>%s/master/docs/content/logo.png</PackageIconUrl>" repositoryContentUrl
-      sprintf "<PackageTags>%s</PackageTags>" tags
-      sprintf "<Version>%s</Version>" release.NugetVersion
-      sprintf "<FsDocsLogoSource>/img/logo.png</FsDocsLogoSource>"
-      sprintf "<FsDocsLicenseLink>%s/blob/master/LICENSE</FsDocsLicenseLink>" repositoryUrl
-      sprintf "<FsDocsReleaseNotesLink>%s/blob/master/RELEASE_NOTES.MD</FsDocsReleaseNotesLink>" repositoryUrl
-      "<FsDocsWarnOnMissingDocs>true</FsDocsWarnOnMissingDocs>"
-      "<FsDocsTheme>default</FsDocsTheme>"
-      "</PropertyGroup>"
-      "</Project>" ]
-    |> Fake.IO.File.write false "Directory.Build.props")
-
-Target.create "GenerateDocs" (fun _ ->
-    Fake.IO.Shell.cleanDir ".fsdocs"
-    let result = DotNet.exec id "fsdocs" "build --clean --eval --strict"
-    if result.ExitCode <> 0 then
-        failwith "Document build failed" )
-
 
 // --------------------------------------------------------------------------------------
 // Run all targets by default. Invoke 'build <Target>' to override
