@@ -79,10 +79,28 @@ module PairList =
             match name with
             | Some name ->
                 let sym = engine.Api.symbol.install.Invoke(name)
-                engine.Api.setTag node sym
-            | None -> engine.Api.setTag node engine.Api.nilValue
+                engine.Api.linkedLists.setTag node sym
+            | None -> engine.Api.linkedLists.setTag node engine.Api.nilValue
 
             node
+
+    let rec read (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) : (string option * SymbolicExpression) list =
+
+        if sexp.ptr = engine.Api.nilValue then
+            []
+        else
+            let tag = engine.Api.linkedLists.getTag sexp.ptr
+            let nameOpt =
+                match { ptr = tag } with
+                | t when t.ptr = engine.Api.nilValue -> None
+                | t when SymbolicExpression.getType engine t = Symbol ->
+                    Some <| Extract.extractSymbol engine t
+                | _ -> None
+
+            let carPtr = engine.Api.linkedLists.getCar sexp.ptr
+            let cdrPtr = engine.Api.linkedLists.getCdr sexp.ptr
+            let value = { ptr = carPtr }
+            (nameOpt, value) :: read engine { ptr = cdrPtr }
 
 module Promise =
 
@@ -144,8 +162,8 @@ module Evaluate =
         let callPtr =
             engine.Api.construct.allocLang.Invoke(List.length args + 1)
 
-        engine.Api.setCar callPtr fn.ptr
-        engine.Api.setCdr callPtr pairlist
+        engine.Api.linkedLists.setCar callPtr fn.ptr
+        engine.Api.linkedLists.setCdr callPtr pairlist
 
         match NativeApi.tryEval callPtr rEnv.Pointer engine with
         | Ok ptr -> Ok { ptr = ptr }
@@ -317,10 +335,68 @@ module Symbol =
         else
             Some { ptr = v }
 
-module Function =
+module Closures =
 
-    let getFormals engine closure = failwith "not implemented"
+    type DefaultValue =
+        | Missing
+        | Null
+        | Literal of SymbolicExpression
+        | Expression of SymbolicExpression
 
+    type ArgKind =
+        | Normal
+        | VarArgs
+        | Optional
+
+    /// An argument to a closure in R
+    type Formal = {
+            Name: string
+            Default: DefaultValue
+            Kind: ArgKind }
+
+    let classifyKind (name: string) (def: DefaultValue) =
+        if name = "..." then
+            VarArgs
+        else
+            match def with
+            | Missing -> Normal
+            | _ -> Optional
+
+    /// Try and retrieve formals for a closure.
+    let tryFormals (engine: NativeApi.RunningEngine) closure =
+        match SymbolicExpression.getType engine closure with
+        | SymbolicExpression.Closure ->
+
+            let formalsPtr = engine.Api.closures.getFormals.Invoke closure.ptr
+            if formalsPtr = engine.Api.nilValue
+            then None
+            else
+                let raw = PairList.read engine { ptr = formalsPtr }
+                raw
+                |> List.choose (fun (nameOpt, defaultExpr) ->
+                    nameOpt |> Option.map (fun name ->
+
+                        let def =
+                            if defaultExpr.ptr = engine.Api.missingArg then
+                                Missing
+                            else
+                                match SymbolicExpression.getType engine defaultExpr with
+                                | SymbolicExpression.Nil -> Null
+                                | SymbolicExpression.IntegerVector
+                                | SymbolicExpression.RealVector
+                                | SymbolicExpression.LogicalVector
+                                | SymbolicExpression.CharacterVector ->
+                                    Literal defaultExpr
+                                | _ ->
+                                    Expression defaultExpr
+
+                        let kind = classifyKind name def
+
+                        { Name = name
+                          Kind = kind
+                          Default = def }))
+                |> Some
+        | _ -> None
 
 
     [<Literal>]

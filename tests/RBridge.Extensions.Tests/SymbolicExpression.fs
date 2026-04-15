@@ -57,6 +57,24 @@ let create =
 
           ]
 
+[<Tests>]
+let symExTests =
+    testList "Symbolic expression extensions" [
+
+        testCase "Returns empty list for objects with no class" <| fun _ ->
+            let xR = Evaluate.tryEval "42" (REnvironment.globalEnv engine.Value) engine.Value
+            let x = Expect.wantOk xR "Could not eval 42"
+            let classes = SymbolicExpression.getClasses engine.Value x
+            Expect.sequenceEqual classes [] "Numeric scalar should have no class"
+
+        testCase "Gets multiple classes in correct inheritance order" <| fun _ ->
+            let xR = Evaluate.tryEval "as.POSIXlt(Sys.time())" (REnvironment.globalEnv engine.Value) engine.Value
+            let x = Expect.wantOk xR "Could not eval code"
+            let classes = SymbolicExpression.getClasses engine.Value x
+            Expect.sequenceEqual classes [ "POSIXlt"; "POSIXt" ] "Did not have classes in correct order"
+
+    ]
+
 
 [<EntryPoint>]
 let main argv =

@@ -7,9 +7,14 @@ module Extract =
     open System.Runtime.InteropServices
     open System
 
+    let extractSymbol (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) : string =
+        let charsPtr = engine.Api.symbol.getPrintName sexp.ptr
+        let utf8Ptr = engine.Api.translateUtf8.Invoke charsPtr
+        Marshal.PtrToStringUTF8 utf8Ptr
+
     let extractChar (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) : string =
-        let ptr = engine.Api.pointers.charPointer sexp.ptr
-        Marshal.PtrToStringAnsi ptr
+        let ptr = engine.Api.translateUtf8.Invoke sexp.ptr
+        Marshal.PtrToStringUTF8 ptr
 
     let extractIntArray (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) : int [] =
         let len = NativeApi.length sexp.ptr engine
@@ -50,8 +55,8 @@ module Extract =
             len
             (fun i ->
                 let elemPtr = Marshal.ReadIntPtr(ptr, i * IntPtr.Size)
-                let charPtr = engine.Api.pointers.charPointer elemPtr
-                Marshal.PtrToStringAnsi(charPtr))
+                let utf8Ptr = engine.Api.translateUtf8.Invoke elemPtr
+                Marshal.PtrToStringUTF8 utf8Ptr )
 
     let extractList (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) : SymbolicExpression [] =
         let len = NativeApi.length sexp.ptr engine

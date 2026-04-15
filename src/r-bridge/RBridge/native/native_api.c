@@ -32,3 +32,19 @@ void rbridge_set_cdr(SEXP node, SEXP next) {
 void rbridge_set_tag(SEXP node, SEXP tag) {
     SET_TAG(node, tag);
 }
+
+SEXP rbridge_get_car(SEXP node) {
+    return CAR(node);
+}
+
+SEXP rbridge_get_cdr(SEXP node) {
+    return CDR(node);
+}
+
+SEXP rbridge_get_tag(SEXP node) {
+    return TAG(node);
+}
+
+SEXP rbridge_get_printname(SEXP sym) {
+    return PRINTNAME(sym);
+}

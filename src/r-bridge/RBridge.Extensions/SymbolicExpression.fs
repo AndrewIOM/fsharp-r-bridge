@@ -26,4 +26,14 @@ module SymbolicExpression =
     /// Get the classes associated with a symbolic expression.
     /// If inheritence is active, the child class will appear earlier
     /// than the parent class.
-    let getClasses engine sexp = [ "not implemented" ]
+    let getClasses (engine: NativeApi.RunningEngine) sexp =
+        match SymbolicExpression.tryGetAttribute sexp "class" engine with
+        | None -> []
+        | Some cl ->
+            if cl.ptr = engine.Api.nilValue then []
+            else
+                match SymbolicExpression.getType engine cl with
+                | SymbolicExpression.CharacterVector ->
+                    Extract.extractStringArray engine cl
+                    |> Array.toList
+                | _ -> []

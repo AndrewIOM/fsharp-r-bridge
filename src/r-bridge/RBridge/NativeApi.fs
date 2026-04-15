@@ -92,7 +92,8 @@ module NativeApi =
         type SymbolApi =
             { install: Rf_install
               mkString: Rf_mkString
-              mkChar: Rf_mkChar }
+              mkChar: Rf_mkChar
+              getPrintName: nativeint -> nativeint }
 
     module Attributes =
 
@@ -171,11 +172,23 @@ module NativeApi =
               isPairList: Rf_isPairList
               isVector: Rf_isVector }
 
+    module ClosuresApi =
+
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type R_ClosureFormals = delegate of sexp -> sexp
+
+        type ClosuresApi = {
+            getFormals: R_ClosureFormals
+        }
+
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type R_MissingArg = delegate of sexp -> sexp
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type R_FindNamespace = delegate of sexp -> sexp
+
+    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+    type Rf_translateCharUTF8 = delegate of sexp -> sexp
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type R_getVar = delegate of sexp * sexp * int -> sexp
@@ -227,13 +240,25 @@ module NativeApi =
     module Custom =
 
         [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
-        extern void rbridge_set_tag(IntPtr node, IntPtr tag)
+        extern void rbridge_set_tag(sexp node, sexp tag)
 
         [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
-        extern void rbridge_set_car(IntPtr node, IntPtr value)
+        extern sexp rbridge_get_tag(sexp node)
 
         [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
-        extern void rbridge_set_cdr(IntPtr node, IntPtr next)
+        extern void rbridge_set_car(sexp node, sexp value)
+
+        [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
+        extern sexp rbridge_get_car(sexp node)
+
+        [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
+        extern void rbridge_set_cdr(sexp node, sexp next)
+
+        [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
+        extern sexp rbridge_get_cdr(sexp node)
+
+        [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
+        extern sexp rbridge_get_printname(sexp node)
 
         [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
         extern int rbridge_typeof(nativeint sexp)
@@ -247,18 +272,18 @@ module NativeApi =
           attribute: Attributes.AttributeApi
           typeof: Types.TypesApi
           pointers: PointerAccess
+          closures: ClosuresApi.ClosuresApi
           findNamespace: R_FindNamespace
+          translateUtf8: Rf_translateCharUTF8
           getVar: R_getVar
           getVarEx: R_getVarEx
           defineVar: Rf_defineVar
           length: Rf_length
           nrows: Rf_nrows
           ncols: Rf_ncols
+          linkedLists: LinkedListsApi
           allocVector: Rf_allocVector
           allocMatrix: Rf_allocMatrix
-          setTag: nativeint -> nativeint -> unit
-          setCdr: nativeint -> nativeint -> unit
-          setCar: nativeint -> nativeint -> unit
           initEmbedded: Rf_initEmbeddedR
           setStartTime: R_setStartTime
           replDllInit: R_ReplDLLinit
@@ -277,6 +302,15 @@ module NativeApi =
           stringPointer: sexp -> sexp // STRING_PTR(x)
           vectorPointer: sexp -> sexp // VECTOR_PTR(x)
           charPointer: sexp -> sexp } // CHAR(x)
+
+    and LinkedListsApi = {
+          setTag: nativeint -> nativeint -> unit
+          setCdr: nativeint -> nativeint -> unit
+          setCar: nativeint -> nativeint -> unit
+          getTag: nativeint -> nativeint
+          getCdr: nativeint -> nativeint
+          getCar: nativeint -> nativeint
+    }
 
     type REngine =
         | Running of RunningEngine
@@ -313,7 +347,8 @@ module NativeApi =
                 symbol =
                     { install = get "Rf_install"
                       mkString = get "Rf_mkString"
-                      mkChar = get "Rf_mkChar" }
+                      mkChar = get "Rf_mkChar"
+                      getPrintName = Custom.rbridge_get_printname }
                 attribute =
                     { getAttrib = get "Rf_getAttrib"
                       setAttrib = get "Rf_setAttrib" }
@@ -334,8 +369,20 @@ module NativeApi =
                       isLanguage = get "Rf_isLanguage"
                       isPairList = get "Rf_isPairList"
                       isVector = get "Rf_isVector" }
+                closures = {
+                    getFormals = get "R_ClosureFormals"
+                }
+                linkedLists = {
+                    setTag = fun node tag -> Custom.rbridge_set_tag (node, tag)
+                    setCar = fun node value -> Custom.rbridge_set_car (node, value)
+                    setCdr = fun node next -> Custom.rbridge_set_cdr (node, next)
+                    getTag = Custom.rbridge_get_tag
+                    getCar = Custom.rbridge_get_car
+                    getCdr = Custom.rbridge_get_cdr
+                }
                 missingArg = 0n
                 findNamespace = get "R_FindNamespace"
+                translateUtf8 = get "Rf_translateCharUTF8"
                 getVar = get "R_getVar"
                 getVarEx = get "R_getVarEx"
                 defineVar = get "Rf_defineVar"
@@ -344,9 +391,6 @@ module NativeApi =
                 ncols = get "Rf_ncols"
                 allocVector = get "Rf_allocVector"
                 allocMatrix = get "Rf_allocMatrix"
-                setTag = fun node tag -> Custom.rbridge_set_tag (node, tag)
-                setCar = fun node value -> Custom.rbridge_set_car (node, value)
-                setCdr = fun node next -> Custom.rbridge_set_cdr (node, next)
                 initEmbedded = get "Rf_initEmbeddedR"
                 setStartTime = get "R_setStartTime"
                 replDllInit = get "R_ReplDLLinit"

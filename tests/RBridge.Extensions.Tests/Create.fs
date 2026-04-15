@@ -100,3 +100,29 @@ let stress =
               Expect.isTrue ok "CHARSXP should always classify as Char"
 
           ]
+
+[<Tests>]
+let closureTests =
+    testList "Closures" [
+
+        testCase "Gets correct closures for mean" <| fun _ ->
+
+            // Retrieve the built-in closure "mean"
+            let baseEnv = REnvironment.ofNamespace engine.Value "base"
+            let mean = REnvironment.tryGetValue engine.Value baseEnv "mean"
+            Expect.isSome mean "Could not find 'mean' in base."
+
+            let formals = Closures.tryFormals engine.Value mean.Value
+            Expect.isSome mean "Could not get formals for 'mean'."
+
+            let names = formals.Value |> List.map (fun f -> f.Name)
+            Expect.sequenceEqual names ["x"; "..."] "mean should have formals x and ..."
+
+            let kinds = formals.Value |> List.map (fun f -> f.Kind)
+            Expect.sequenceEqual kinds [Closures.Normal; Closures.VarArgs] "Kinds should be Normal and VarArgs"
+
+            let defaults = formals.Value |> List.map (fun f -> f.Default)
+            Expect.isTrue (defaults.[0] = Closures.Missing) "x should be Missing"
+            Expect.isTrue (defaults.[1] = Closures.Missing) "... should be Missing"
+
+    ]
