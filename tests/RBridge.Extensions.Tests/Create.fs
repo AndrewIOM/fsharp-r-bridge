@@ -17,7 +17,7 @@ let isSafeSymbolName (s: string) =
 
 let engine =
     lazy
-        (match RInterop.initialise () with
+        (match RInterop.initialise Logging.console with
          | NativeApi.Running r -> r
          | _ -> failwith "Could not start R instance")
 

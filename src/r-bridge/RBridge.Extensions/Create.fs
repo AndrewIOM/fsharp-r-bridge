@@ -318,13 +318,11 @@ module Symbol =
         (env: REnvironment)
         (engine: NativeApi.RunningEngine)
         : unit =
-        Logging.debug "setSymbol %s = %A" name value
         let sym = NativeApi.install name engine.Api
         NativeApi.defineVar sym 0n env.Pointer |> ignore
 
     /// Capture the value of a symbol.
     let getSymbol (name: string) (env: REnvironment) (engine: NativeApi.RunningEngine) : SymbolicExpression option =
-        Logging.debug "getSymbol %s" name
         let sym = NativeApi.install name engine.Api
 
         let v =
