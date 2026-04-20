@@ -3,8 +3,6 @@ name: Build Native Libraries
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ] 
 
 jobs:
   build-native:
@@ -32,41 +30,6 @@ jobs:
       - name: Set R_HOME environment variable
         run:   |
           echo "R_HOME=$(R RHOME)"
-          if [ "$RUNNER_OS" == "Linux" ]; then
-                mkdir -p ~/.local/lib/R
-                echo "R_LIBS_USER=~/.local/lib/R" >> "$GITHUB_ENV"
-                echo "R_HOME=$(R RHOME)" >> "$GITHUB_ENV"
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-                echo "R_HOME=$(R RHOME)" >> "$GITHUB_ENV"
-          elif [ "$RUNNER_OS" == "Windows" ]; then
-                echo "R_HOME=$(R RHOME)" >> "$GITHUB_ENV"
-          else
-                echo "$RUNNER_OS not supported"
-                exit 1
-          fi
-        shell: bash
-
-      - name: check
-        shell: bash
-        run: |
-          echo "=== Listing r-headers ==="
-          ls -R .
-
-          echo "=== Listing extracted headers ==="
-          ls -R r-headers || true
-
-          echo "=== Listing R include directory (if exists) ==="
-          if [ -d "$R_HOME/include" ]; then
-            ls -R "$R_HOME/include"
-          fi
-
-          echo "=== Listing Windows R include directory (if exists) ==="
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            ls -R /c/R-${{ matrix.r-version }}/include || true
-          fi
-
-      - name: Set R_HOME environment variable
-        run:   |
           if [ "$RUNNER_OS" == "Linux" ]; then
                 mkdir -p ~/.local/lib/R
                 echo "R_LIBS_USER=~/.local/lib/R" >> "$GITHUB_ENV"
