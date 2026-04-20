@@ -1,5 +1,9 @@
 // native_api.c
+#include <Rinternals.h>
+
+#ifndef _WIN32
 #include <Rinterface.h>
+#endif
 
 static void (*managed_write_console)(const char*, int) = 0;
 
@@ -11,7 +15,11 @@ void my_write_console(const char *buf, int len) {
 
 void rbridge_set_write_console(void (*cb)(const char*, int)) {
     managed_write_console = cb;
+
+#ifndef _WIN32
+    // Unix/macOS: override the global console pointer
     ptr_R_WriteConsole = my_write_console;
+#endif
 }
 
 int rbridge_typeof(SEXP x) {

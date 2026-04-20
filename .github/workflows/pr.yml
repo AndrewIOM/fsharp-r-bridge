@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest]
-        r-version: [ 'release', '4.5.0' ]
+        r-version: [ '4.5.0' ]
 
     steps:
     - uses: actions/checkout@master
