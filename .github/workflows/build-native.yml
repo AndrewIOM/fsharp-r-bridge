@@ -23,18 +23,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download R source headers
-        shell: bash
-        working-directory: src/r-bridge/RBridge/native
-        run: |
-          curl -L https://cran.r-project.org/src/base/R-4/R-${{ matrix.r-version }}.tar.gz -o R.tar.gz
-          mkdir r-headers
-          tar -xzf R.tar.gz --strip-components=3 -C r-headers R-${{ matrix.r-version }}/src/include
-
-      - uses: r-lib/actions/setup-r@v2
-        name: Setup R
+      - name: Setup R (Linux/macOS)
+        if: runner.os != 'Windows'
+        uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.r-version }}
+
+      - name: Install R-devel (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          curl -o R-devel.exe https://cloud.r-project.org/bin/windows/base/rpatched/R-devel-win.exe
+          ./R-devel.exe /VERYSILENT /SUPPRESSMSGBOXES /DIR=C:\\R-devel
+
 
       - name: Set R_HOME environment variable
         run:   |
@@ -65,13 +66,11 @@ jobs:
               -o librbridge-native.so \
               -I"r-headers" -I"$R_HOME/include" -L"$R_HOME/lib" -lR -DR_INTERFACE_PTRS
           else
-            WIN_HEADERS=$(cygpath -u "${GITHUB_WORKSPACE}/src/r-bridge/RBridge/native/r-headers")
             gcc -shared -fPIC native_api.c \
               -o rbridge-native.dll \
-              -I"$WIN_HEADERS" \
-              -L"/c/rtools42/usr/lib" \
-              -lR \
-              -DR_INTERFACE_PTRS
+              -I"/c/R-devel/include" \
+              -L"/c/R-devel/bin/x64" \
+              -lR -DR_INTERFACE_PTRS
           fi
 
       - name: Upload artifact
