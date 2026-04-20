@@ -11,15 +11,12 @@ jobs:
       matrix:
         r-version: [ '4.5.0' ]
         os: [macos-latest, windows-latest, ubuntu-latest]
-        include:
-        - os: ubuntu-latest
-          arch: x64
-        - os: ubuntu-latest
-          arch: arm64
+        arch: [ x64, arm64 ]
+        exclude:
         - os: macos-latest
-          arch: arm64
-        - os: windows-latest
           arch: x64
+        - os: windows-latest
+          arch: arm64
 
     runs-on: ${{ matrix.os }}
 
@@ -70,7 +67,7 @@ jobs:
           else
             gcc -shared -fPIC native_api.c \
               -o rbridge-native.dll \
-              -I"./r-headers" \
+              -I"${GITHUB_WORKSPACE}/src/r-bridge/RBridge/native/r-headers" \
               -I"$R_HOME/include" \
               -L"$R_HOME/bin/x64" \
               -lR \
