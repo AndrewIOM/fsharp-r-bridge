@@ -65,11 +65,12 @@ jobs:
               -o librbridge-native.so \
               -I"r-headers" -I"$R_HOME/include" -L"$R_HOME/lib" -lR -DR_INTERFACE_PTRS
           else
+            WIN_HEADERS=$(cygpath -u "${GITHUB_WORKSPACE}/src/r-bridge/RBridge/native/r-headers")
+
             gcc -shared -fPIC native_api.c \
               -o rbridge-native.dll \
-              -I"${GITHUB_WORKSPACE}/src/r-bridge/RBridge/native/r-headers" \
-              -I"$R_HOME/include" \
-              -L"$R_HOME/bin/x64" \
+              -I"$WIN_HEADERS" \
+              -L"/c/rtools42/usr/lib" \
               -lR \
               -DR_INTERFACE_PTRS
           fi
