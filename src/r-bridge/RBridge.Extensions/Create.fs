@@ -183,17 +183,24 @@ module REnvironment =
         let nsPtr = engine.Api.findNamespace.Invoke name
         REnvironment nsPtr
 
-    let createEmpty (engine: NativeApi.RunningEngine) =
-        Evaluate.tryEval "new.env()" (globalEnv engine) engine
-        |> Result.defaultWith (fun _ -> failwith "Error making new environment")
-        |> fun s -> s.ptr
-        |> REnvironment
-
     /// Convert a symbolic expression pointer to an environment, if it is one.
     let ofSExp engine sexp =
         match SymbolicExpression.getType engine sexp with
         | Environment -> REnvironment sexp.ptr |> Some
         | _ -> None
+
+    let ofPackage (engine: NativeApi.RunningEngine) (pkgName: string) =
+        let code = sprintf "as.environment('package:%s')" pkgName
+        Evaluate.tryEval code (globalEnv engine) engine
+        |> Result.toOption
+        |> Option.bind (ofSExp engine)
+        |> Option.defaultWith (fun _ -> failwith "Error making new environment")
+
+    let createEmpty (engine: NativeApi.RunningEngine) =
+        Evaluate.tryEval "new.env()" (globalEnv engine) engine
+        |> Result.toOption
+        |> Option.bind (ofSExp engine)
+        |> Option.defaultWith (fun _ -> failwith "Error making new environment")
 
     /// Looks up a symbol by name within the specified environment.
     /// Returns None if not bound.
@@ -204,8 +211,6 @@ module REnvironment =
 
         let valuePtr =
             NativeApi.getVarEx sym env.Pointer false engine.Api.unboundVal engine.Api
-
-        printfn "R_getVarEx(%s): ptr=%A" name (SymbolicExpression.getType engine { ptr = valuePtr })
 
         if valuePtr = engine.Api.unboundVal then
             None

@@ -6,7 +6,7 @@ open System.Reflection
 [<assembly: AssemblyCompanyAttribute("University of Cambridge")>]
 [<assembly: AssemblyProductAttribute("RBridge")>]
 [<assembly: AssemblyDescriptionAttribute("A slim F# bridge for R.")>]
-[<assembly: AssemblyVersionAttribute("1.0.2")>]
-[<assembly: AssemblyFileVersionAttribute("1.0.2")>]
+[<assembly: AssemblyVersionAttribute("1.0.4")>]
+[<assembly: AssemblyFileVersionAttribute("1.0.4")>]
 do ()
 

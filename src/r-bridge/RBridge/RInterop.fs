@@ -74,11 +74,11 @@ module RInterop =
 
         let savedLocale = Locale.saveLocaleEnv ()
         logger.debug <| sprintf  "Saved locale: %A" savedLocale
-        printfn "Culture before restore = %A" System.Globalization.CultureInfo.CurrentCulture
+        logger.debug <| sprintf "Culture before restore = %A" System.Globalization.CultureInfo.CurrentCulture
         logger.debug <| sprintf  "Starting embedded R"
         let status = NativeApi.startEmbeddedR args engine
         logger.debug <| sprintf  "Rf_initEmbeddedR returned %d" status
-        printfn "Culture after restore = %A" System.Globalization.CultureInfo.CurrentCulture
+        logger.debug <| sprintf "Culture after restore = %A" System.Globalization.CultureInfo.CurrentCulture
         Locale.setEnvironment savedLocale
 
         // update nilValue, globalEnv and other global vars now that R has been initialised;

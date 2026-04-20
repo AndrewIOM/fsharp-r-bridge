@@ -33,6 +33,27 @@ let environmentTests =
 
               Expect.equal t SymbolicExpression.Environment "getNamespace('base') should return an environment"
 
+          testCase "ofPackage loads correct environment"
+          <| fun _ ->
+              let dsEnv =
+                  REnvironment.ofPackage engine.Value "datasets"
+
+              let sexp = { ptr = dsEnv.Pointer }
+
+              let t =
+                  SymbolicExpression.getType engine.Value sexp
+
+              Expect.equal t SymbolicExpression.Environment "getNamespace('base') should return an environment"
+
+              let mtCars =
+                REnvironment.tryGetValue engine.Value dsEnv "mtcars"
+                |> fun m -> Expect.wantSome m "Could not find mtcars"
+              
+              SymbolicExpression.print engine.Value mtCars
+              let carType = SymbolicExpression.getType engine.Value mtCars
+              Expect.equal carType SymbolicExpression.List "mtcars should have sexp type list"
+
+
           testCase "createEmpty creates an environment"
           <| fun _ ->
               let env = REnvironment.createEmpty engine.Value

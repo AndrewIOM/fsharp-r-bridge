@@ -108,7 +108,8 @@ module ActivePatterns =
     let (|Language|_|) engine (sexp: SymbolicExpression) =
         isA engine sexp SymbolicExpression.Language
 
-    let (|List|_|) engine (sexp: SymbolicExpression) = isA engine sexp SymbolicExpression.List
+    let (|List|_|) engine (sexp: SymbolicExpression) =
+        isA engine sexp SymbolicExpression.List
 
     let (|PairList|_|) engine (sexp: SymbolicExpression) =
         isA engine sexp SymbolicExpression.Pairlist

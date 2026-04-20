@@ -97,15 +97,17 @@ module SymbolicExpression =
             CharacterVector
         elif engine.Api.typeof.isList.Invoke sexp.ptr <> 0 then
             List
-        elif engine.Api.typeof.isExpression.Invoke sexp.ptr
-             <> 0 then
+        elif engine.Api.typeof.isExpression.Invoke sexp.ptr <> 0 then
             List
         elif (NativeApi.typeOf sexp.ptr engine) = 9 then
             Char
         elif isPromise engine.Api.typeof sexp then
             Promise
         else
-            Any
+            let t = NativeApi.typeOf sexp.ptr engine
+            match t with
+            | 19 -> List
+            | _ -> Any
 
     let isVector engine sexp =
         match getType engine sexp with
