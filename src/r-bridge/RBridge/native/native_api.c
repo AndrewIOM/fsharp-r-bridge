@@ -1,5 +1,11 @@
 // native_api.c
+#include <Rinternals.h>
+
+#ifdef _WIN32
+extern void (*ptr_R_WriteConsole)(const char *, int);
+#else
 #include <Rinterface.h>
+#endif
 
 static void (*managed_write_console)(const char*, int) = 0;
 
