@@ -9,9 +9,14 @@ jobs:
   build-native:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        arch: [x64, arm64]
-        r-version: [ '4.5.0' ]
+      - os: ubuntu-latest
+        arch: x64
+      - os: ubuntu-latest
+        arch: arm64
+      - os: macos-latest
+        arch: arm64
+      - os: windows-latest
+        arch: x64
 
     runs-on: ${{ matrix.os }}
 
@@ -22,14 +27,14 @@ jobs:
         shell: bash
         working-directory: src/r-bridge/RBridge/native
         run: |
-          curl -L https://cran.r-project.org/src/base/R-4/R-${{ matrix.r-version }}.tar.gz -o R.tar.gz
+          curl -L https://cran.r-project.org/src/base/R-4/R-4.5.0.tar.gz -o R.tar.gz
           mkdir r-headers
-          tar -xzf R.tar.gz --strip-components=2 -C r-headers R-${{ matrix.r-version }}/src/include
+          tar -xzf R.tar.gz --strip-components=2 -C r-headers R-4.5.0/src/include
 
       - uses: r-lib/actions/setup-r@v2
         name: Setup R
         with:
-          r-version: ${{ matrix.r-version }}
+          r-version: 4.5.0
 
       - name: Set R_HOME environment variable
         run:   |
@@ -62,7 +67,7 @@ jobs:
           else
             gcc -shared -fPIC native_api.c \
               -o rbridge-native.dll \
-              -I"r-headers" \
+              -I"./r-headers" \
               -I"$R_HOME/include" \
               -L"$R_HOME/bin/x64" \
               -lR \
