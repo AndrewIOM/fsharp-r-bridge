@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         r-version: [ '4.5.0' ]
-        os: [macos-latest, windows-latest, macos-latest]
+        os: [macos-latest, windows-latest, ubuntu-latest]
         include:
         - os: ubuntu-latest
           arch: x64
