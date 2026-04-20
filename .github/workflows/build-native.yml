@@ -31,6 +31,7 @@ jobs:
 
       - name: Set R_HOME environment variable
         run:   |
+          echo R RHOME
           if [ "$RUNNER_OS" == "Linux" ]; then
                 mkdir -p ~/.local/lib/R
                 echo "R_LIBS_USER=~/.local/lib/R" >> "$GITHUB_ENV"
