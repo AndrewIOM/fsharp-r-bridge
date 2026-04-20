@@ -1,8 +1,11 @@
 name: .NET
 
 on:
-  push:
+  workflow_run:
+    workflows: [ "Build Native Libraries" ]
     branches: [ main ]
+    types: 
+      - completed
 
 jobs:
   build:
