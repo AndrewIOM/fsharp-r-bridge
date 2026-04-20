@@ -95,22 +95,20 @@ Target.create "CheckFormat" (fun _ ->
 // Move native libraries (compiled by gh runners) into correct location.
 
 let artifactsDir = "native-artifacts"
-let runtimesDir = "runtimes"
+let runtimesDir = "src/r-bridge/RBridge/bin/runtimes"
 
 Target.create "PrepareRuntimes" (fun _ ->
     Fake.IO.Shell.cleanDir runtimesDir
 
-    let copy rid pattern =
+    let copy rid filename =
         let target = runtimesDir @@ rid @@ "native"
         Fake.IO.Directory.ensure target
-        Fake.IO.Shell.copyFileIntoSubFolder target pattern
+        Fake.IO.Shell.copyTo target [ filename ]
 
     copy "linux-x64"   (artifactsDir @@ "native-ubuntu-latest-x64"   @@ "librbridge-native.so")
     copy "linux-arm64" (artifactsDir @@ "native-ubuntu-latest-arm64" @@ "librbridge-native.so")
-    copy "osx-x64"     (artifactsDir @@ "native-macos-latest-x64"    @@ "librbridge-native.dylib")
     copy "osx-arm64"   (artifactsDir @@ "native-macos-latest-arm64"  @@ "librbridge-native.dylib")
     copy "win-x64"     (artifactsDir @@ "native-windows-latest-x64"  @@ "rbridge-native.dll")
-    copy "win-arm64"   (artifactsDir @@ "native-windows-latest-arm64"@@ "rbridge-native.dll")
 )
 
 
