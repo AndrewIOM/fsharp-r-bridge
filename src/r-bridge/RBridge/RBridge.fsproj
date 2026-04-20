@@ -16,14 +16,14 @@
     <PackageReference Include="FSharp.Core" Version="8.0.100" />
   </ItemGroup>
   <ItemGroup>
-    <!-- macOS apple silicon (local build) -->
+    <!-- macOS apple silicon (local build and test) -->
     <None Include="bin/Release/net8.0/librbridge-native.dylib"
           Pack="true"
           PackagePath="runtimes/osx-arm64/native/" />
-    <!-- from github runner multi-platform build -->
-    <None Include="bin/native/*/*"
+    <!-- from artifacts: multi-platform build -->
+    <None Include="$(MSBuildProjectDirectory)/../../../artifacts/runtimes/*/native/*"
           Pack="true"
-          PackagePath="runtimes/%(RecursiveDir)native/" />
+          PackagePath="runtimes" />
   </ItemGroup>
   <Import Project="native/native.props" />
 </Project>

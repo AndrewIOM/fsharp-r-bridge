@@ -92,27 +92,6 @@ Target.create "CheckFormat" (fun _ ->
         Trace.logf "Errors while formatting: %A" result.Errors)
 
 // --------------------------------------------------------------------------------------
-// Move native libraries (compiled by gh runners) into correct location.
-
-let artifactsDir = "native-artifacts"
-let runtimesDir = "src/r-bridge/RBridge/bin/runtimes"
-
-Target.create "PrepareRuntimes" (fun _ ->
-    Fake.IO.Shell.cleanDir runtimesDir
-
-    let copy rid filename =
-        let target = runtimesDir @@ rid @@ "native"
-        Fake.IO.Directory.ensure target
-        Fake.IO.Shell.copyTo target [ filename ]
-
-    copy "linux-x64"   (artifactsDir @@ "native-ubuntu-latest-x64"   @@ "librbridge-native.so")
-    copy "linux-arm64" (artifactsDir @@ "native-ubuntu-latest-arm64" @@ "librbridge-native.so")
-    copy "osx-arm64"   (artifactsDir @@ "native-macos-latest-arm64"  @@ "librbridge-native.dylib")
-    copy "win-x64"     (artifactsDir @@ "native-windows-latest-x64"  @@ "rbridge-native.dll")
-)
-
-
-// --------------------------------------------------------------------------------------
 // Build library & test project
 
 Target.create "Build" (fun _ ->
@@ -190,7 +169,7 @@ Target.create "NuGet" (fun _ ->
 Target.create "All" ignore
 
 "Clean" ==> "CheckFormat" ==> "AssemblyInfo" ==> "Build"
-"Build" ==> "PrepareRuntimes" ==> "NuGet" ==> "All"
+"Build" ==> "NuGet" ==> "All"
 "Build" ==> "RunTests" ==> "All"
 
 Target.runOrDefault "All"
