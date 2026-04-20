@@ -96,9 +96,10 @@ jobs:
           else
             gcc -shared -fPIC native_api.c \
               -o rbridge-native.dll \
-              -I"/c/R-devel/include" \
-              -L"/c/R-devel/bin/x64" \
-              -lR -DR_INTERFACE_PTRS
+              -I"/c/R/include" \
+              -L"/c/R/bin/x64" \
+              -lR \
+              -DR_INTERFACE_PTRS
           fi
 
       - name: Upload artifact
