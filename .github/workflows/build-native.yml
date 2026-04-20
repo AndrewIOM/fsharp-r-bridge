@@ -29,7 +29,6 @@ jobs:
         run: |
           curl -L https://cran.r-project.org/src/base/R-4/R-${{ matrix.r-version }}.tar.gz -o R.tar.gz
           mkdir r-headers
-          tar -xzf R.tar.gz --strip-components=2 -C r-headers R-${{ matrix.r-version }}/include
           tar -xzf R.tar.gz --strip-components=3 -C r-headers R-${{ matrix.r-version }}/src/include
 
       - uses: r-lib/actions/setup-r@v2
