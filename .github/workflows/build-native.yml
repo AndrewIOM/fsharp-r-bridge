@@ -18,26 +18,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Download R source headers
+        shell: bash
+        working-directory: src/r-bridge/RBridge/native
+        run: |
+          curl -L https://cran.r-project.org/src/base/R-4/R-${{ matrix.r-version }}.tar.gz -o R.tar.gz
+          mkdir r-headers
+          tar -xzf R.tar.gz --strip-components=2 -C r-headers R-${{ matrix.r-version }}/src/include
+
       - uses: r-lib/actions/setup-r@v2
         name: Setup R
         with:
           r-version: ${{ matrix.r-version }}
-
-      - name: Set R_HOME environment variable
-        shell: bash
-        run:   |
-          if [ "$RUNNER_OS" == "Linux" ]; then
-                mkdir -p ~/.local/lib/R
-                echo "R_LIBS_USER=~/.local/lib/R" >> "$GITHUB_ENV"
-                echo "R_HOME=$(R RHOME)" >> "$GITHUB_ENV"
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-                echo "R_HOME=$(R RHOME)" >> "$GITHUB_ENV"
-          elif [ "$RUNNER_OS" == "Windows" ]; then
-                echo "R_HOME=$(R RHOME)" >> "$GITHUB_ENV"
-          else
-                echo "$RUNNER_OS not supported"
-                exit 1
-          fi
 
       - name: Build native library
         working-directory: src/r-bridge/RBridge/native
@@ -46,23 +38,19 @@ jobs:
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             clang -dynamiclib native_api.c \
               -o librbridge-native.dylib \
-              -I"$R_HOME/include" -L"$R_HOME/lib" -lR -DR_INTERFACE_PTRS
+              -I"r-headers" -I"$R_HOME/include" -L"$R_HOME/lib" -lR -DR_INTERFACE_PTRS
           elif [[ "$RUNNER_OS" == "Linux" ]]; then
             gcc -shared -fPIC native_api.c \
               -o librbridge-native.so \
-              -I"$R_HOME/include" -L"$R_HOME/lib" -lR -DR_INTERFACE_PTRS
+              -I"r-headers" -I"$R_HOME/include" -L"$R_HOME/lib" -lR -DR_INTERFACE_PTRS
           else
-             # Windows - find R headers explicitly
-             R_INCLUDE_DIR=$(${R_HOME}/bin/R CMD config --cppflags | grep -oP '(?<=-I)[^ ]+' | head -1)
-             if [ -z "$R_INCLUDE_DIR" ]; then
-               R_INCLUDE_DIR="${R_HOME}/include"
-             fi
-             gcc -shared -fPIC native_api.c \
-               -o rbridge-native.dll \
-               -I"$R_INCLUDE_DIR" \
-               -L"$R_HOME/bin/x64" \
-               -lR \
-               -DR_INTERFACE_PTRS
+            gcc -shared -fPIC native_api.c \
+              -o rbridge-native.dll \
+              -I"r-headers" \
+              -I"$R_HOME/include" \
+              -L"$R_HOME/bin/x64" \
+              -lR \
+              -DR_INTERFACE_PTRS
           fi
 
       - name: Upload artifact
