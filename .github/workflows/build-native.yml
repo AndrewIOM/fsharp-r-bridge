@@ -52,12 +52,17 @@ jobs:
               -o librbridge-native.so \
               -I"$R_HOME/include" -L"$R_HOME/lib" -lR -DR_INTERFACE_PTRS
           else
-            gcc -shared -fPIC native_api.c \
-              -o rbridge-native.dll \
-              -I"$R_HOME/include" \
-              -L"$R_HOME/bin/x64" \
-              -lR \
-              -DR_INTERFACE_PTRS
+             # Windows - find R headers explicitly
+             R_INCLUDE_DIR=$(${R_HOME}/bin/R CMD config --cppflags | grep -oP '(?<=-I)[^ ]+' | head -1)
+             if [ -z "$R_INCLUDE_DIR" ]; then
+               R_INCLUDE_DIR="${R_HOME}/include"
+             fi
+             gcc -shared -fPIC native_api.c \
+               -o rbridge-native.dll \
+               -I"$R_INCLUDE_DIR" \
+               -L"$R_HOME/bin/x64" \
+               -lR \
+               -DR_INTERFACE_PTRS
           fi
 
       - name: Upload artifact
