@@ -41,10 +41,24 @@ module Extract =
             | 1 -> Some true
             | _ -> None)
 
-    let extractComplexArray engine sexp : RComplex [] = failwith "Not implemented"
+    let extractComplexArray engine sexp : RComplex [] =
+        let len = NativeApi.length sexp.ptr engine
+        let ptr = engine.Api.pointers.complexPointer sexp.ptr
+        Array.init len (fun i ->
+            let offset = i * 2 * sizeof<double>
+            let realBits = Marshal.ReadInt64(ptr, offset)
+            let imagBits = Marshal.ReadInt64(ptr, offset + sizeof<double>)
+            { Real = BitConverter.Int64BitsToDouble realBits
+              Imag = BitConverter.Int64BitsToDouble imagBits }
+        )
 
-    let extractRawArray engine sexp : SymbolicExpression [] = failwith "Not implemented"
-
+    let extractRawArray engine sexp : SymbolicExpression [] =
+        let len = NativeApi.length sexp.ptr engine
+        let ptr = engine.Api.pointers.vectorPointer sexp.ptr
+        Array.init len (fun i ->
+            let elemPtr = Marshal.ReadIntPtr(ptr, i * IntPtr.Size)
+            { ptr = elemPtr } )
+    
     let extractStringArray (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) : string [] =
         let len = NativeApi.length sexp.ptr engine
 
@@ -70,27 +84,27 @@ module Extract =
                 let elemPtr = Marshal.ReadIntPtr(ptr, i * IntPtr.Size)
                 { ptr = elemPtr })
 
-    let extractDoubleMatrix engine sexp : float [,] =
+    let private buildMatrix rows cols get =
+        Array2D.init rows cols (fun r c -> get (c * rows + r))
+
+    let private extractMatrix engine sexp (extract: NativeApi.RunningEngine -> SymbolicExpression -> 'a array) =
         let rows = NativeApi.nrows sexp.ptr engine
         let cols = NativeApi.ncols sexp.ptr engine
-        let flat = extractFloatArray engine sexp
-        let m = Array2D.zeroCreate<float> rows cols
+        let flat = extract engine sexp
+        buildMatrix rows cols (fun i -> flat.[i])
 
-        for c in 0 .. cols - 1 do
-            for r in 0 .. rows - 1 do
-                m.[r, c] <- flat.[c * rows + r]
 
-        m
+    let extractDoubleMatrix engine sexp : float [,] = extractMatrix engine sexp extractFloatArray
 
-    let extractStringMatrix engine sexp : string [,] = failwith "not implemented"
+    let extractStringMatrix engine sexp : string [,] = extractMatrix engine sexp extractStringArray
 
-    let extractLogicalMatrix engine sexp : bool [,] = failwith "not implemented"
+    let extractLogicalMatrix engine sexp : bool option [,] = extractMatrix engine sexp extractLogicalArray
 
-    let extractIntMatrix engine sexp : int [,] = failwith "not implemented"
+    let extractIntMatrix engine sexp : int [,] = extractMatrix engine sexp extractIntArray
 
-    let extractComplexMatrix engine sexp : RComplex [,] = failwith "not implemented"
+    let extractComplexMatrix engine sexp : RComplex [,] = extractMatrix engine sexp extractComplexArray
 
-    let extractRawMatrix engine sexp : SymbolicExpression [,] = failwith "not implemented"
+    let extractRawMatrix engine sexp : SymbolicExpression [,] = extractMatrix engine sexp extractRawArray
 
     let getDimension engine sexp =
         match tryGetAttribute sexp "dim" engine with

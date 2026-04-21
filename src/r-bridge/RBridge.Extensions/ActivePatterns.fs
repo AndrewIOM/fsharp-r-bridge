@@ -86,7 +86,7 @@ module ActivePatterns =
     // S4 objects
     let (|S4Object|_|) engine sexp =
         if S4.isS4 engine sexp then
-            S4.tryGetClass engine sexp
+            Classes.tryGetClass engine sexp
         else
             None
 

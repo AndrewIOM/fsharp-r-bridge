@@ -62,7 +62,22 @@ module Create =
 
         { ptr = vec }
 
-    let complexVector engine strings : SymbolicExpression = failwith "not implemented"
+    let complexVector (engine: NativeApi.RunningEngine) values : SymbolicExpression =
+
+        let n = Seq.length values
+        let vec =
+            engine.Api.allocVector.Invoke(typeAsInt ComplexVector, n)
+
+        let ptr = engine.Api.pointers.complexPointer vec
+
+        values
+        |> Seq.fold (fun offset c ->
+            Marshal.WriteInt64(ptr, offset, BitConverter.DoubleToInt64Bits c.Real)
+            Marshal.WriteInt64(ptr, offset + sizeof<double>, BitConverter.DoubleToInt64Bits c.Imag)
+            offset + 2 * sizeof<double>
+        ) 0 |> ignore
+
+        { ptr = vec }
 
 
 module PairList =
@@ -242,21 +257,35 @@ module Vector =
 
     let tryNames engine sexp = failwith "not finished"
 
+module Classes =
+
+    let tryGetClass engine sexp =
+        SymbolicExpression.tryGetAttribute sexp "class" engine
+
+    let getClasses (engine: NativeApi.RunningEngine) sexp =
+        match SymbolicExpression.tryGetAttribute sexp "class" engine with
+        | None -> []
+        | Some cl ->
+            if cl.ptr = engine.Api.nilValue then []
+            else
+                match SymbolicExpression.getType engine cl with
+                | SymbolicExpression.CharacterVector ->
+                    Extract.extractStringArray engine cl
+                    |> Array.toList
+                | _ -> []
+
 
 module S4 =
 
-    let tryGetClass engine sexpS4 =
-        SymbolicExpression.tryGetAttribute sexpS4 "class" engine
-
     let isS4 engine sexp =
-        tryGetClass engine sexp |> Option.isSome
+        Classes.tryGetClass engine sexp |> Option.isSome
         && SymbolicExpression.tryGetAttribute sexp "package" engine
            |> Option.isSome
 
     let tryGetSlotTypes engine sexpS4 =
         let globalEnv = REnvironment.globalEnv engine
 
-        tryGetClass engine sexpS4
+        Classes.tryGetClass engine sexpS4
         |> Option.bind
             (fun className ->
                 match getType engine className with
@@ -296,23 +325,38 @@ module S4 =
 
 module Dates =
 
-    let isPosixDateTime sexp : bool =
-        // Should be a RealVector
-        // if has class POSIXct, then should have attribute tzone.
-        failwith "not implemented"
+    let isPosixDateTime engine sexp : bool =
+        match SymbolicExpression.getType engine sexp with
+        | RealVector ->
+            let classes = Classes.getClasses engine sexp
+            List.contains "POSIXct" classes
+        | _ -> false
 
-    let isDate sexp : bool =
-        // Should be a RealVector
-        // if has class Date...
-        failwith "not implemented"
-
+    let isDate engine sexp =
+        match SymbolicExpression.getType engine sexp with
+        | RealVector ->
+            let classes = Classes.getClasses engine sexp
+            classes = ["Date"] || List.contains "Date" classes
+        | _ -> false
 
 module Factor =
 
-    let isFactor engine sexp = failwith "not implemented"
+    let trylevels engine sexp =
+        match SymbolicExpression.tryGetAttribute sexp "levels" engine with
+        | Some levelSexp ->
+            match SymbolicExpression.getType engine levelSexp with
+            | CharacterVector -> Extract.extractStringArray engine levelSexp |> Array.toList |> Some
+            | _ -> None
+        | None -> None
 
-    let trylevels engine sexp : string list = failwith "not implemented"
-
+    let isFactor engine sexp =
+        if SymbolicExpression.getType engine sexp <> SymbolicExpression.IntegerVector then false
+        else
+            match trylevels engine sexp with
+            | None -> false
+            | Some _ ->
+                let classes = Classes.getClasses engine sexp
+                List.contains "factor" classes
 
 module Symbol =
 
