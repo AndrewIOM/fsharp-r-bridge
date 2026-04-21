@@ -96,7 +96,7 @@ module SymbolicExpression =
         elif engine.Api.typeof.isString.Invoke sexp.ptr <> 0 then
             CharacterVector
         elif engine.Api.typeof.isList.Invoke sexp.ptr <> 0 then
-            List
+            Pairlist
         elif engine.Api.typeof.isExpression.Invoke sexp.ptr <> 0 then
             List
         elif (NativeApi.typeOf sexp.ptr engine) = 9 then
@@ -106,6 +106,7 @@ module SymbolicExpression =
         else
             let t = NativeApi.typeOf sexp.ptr engine
             match t with
+            | 13 -> IntegerVector // for factors.
             | 19 -> List
             | _ -> Any
 

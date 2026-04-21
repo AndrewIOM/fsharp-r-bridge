@@ -301,6 +301,7 @@ module NativeApi =
           logicalPointer: sexp -> sexp // LOGICAL(x)
           stringPointer: sexp -> sexp // STRING_PTR(x)
           vectorPointer: sexp -> sexp // VECTOR_PTR(x)
+          complexPointer: sexp -> sexp 
           charPointer: sexp -> sexp } // CHAR(x)
 
     and LinkedListsApi = {
@@ -406,6 +407,7 @@ module NativeApi =
                       logicalPointer = dataptr.Invoke
                       stringPointer = dataptr.Invoke
                       vectorPointer = dataptr.Invoke
+                      complexPointer = dataptr.Invoke
                       charPointer = dataptr.Invoke } }
           LibHandle = handle }
 

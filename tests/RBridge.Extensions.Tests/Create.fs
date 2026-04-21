@@ -126,3 +126,28 @@ let closureTests =
             Expect.isTrue (defaults.[1] = Closures.Missing) "... should be Missing"
 
     ]
+
+let testFactor engine code expected =
+    let glob = REnvironment.globalEnv engine
+    let sexp =
+        Evaluate.tryEval code glob engine
+        |> Result.toOption
+        |> Option.get
+    Expect.isTrue (Factor.isFactor engine sexp) "Did not detect factor"
+    Expect.equal (Factor.trylevels engine sexp) expected ""
+
+
+[<Tests>]
+let factorTests =
+    testList "Factors" [
+
+        testCase "Gets factor levels" <| fun _ ->
+            testFactor engine.Value """factor(c("a", "b", "a"))""" (Some ["a"; "b"])
+
+        testCase "Gets factor levels (alt order)" <| fun _ ->
+            testFactor engine.Value """factor(c("b", "b", "a"))""" (Some ["a"; "b"])
+
+        testCase "Gets factor levels (empty factor)" <| fun _ ->
+            testFactor engine.Value """factor(character(0))""" (Some [])
+
+    ]
