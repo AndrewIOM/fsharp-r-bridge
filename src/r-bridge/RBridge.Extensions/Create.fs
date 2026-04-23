@@ -277,10 +277,8 @@ module Classes =
 
 module S4 =
 
-    let isS4 engine sexp =
-        Classes.tryGetClass engine sexp |> Option.isSome
-        && SymbolicExpression.tryGetAttribute sexp "package" engine
-           |> Option.isSome
+    let isS4 (engine:NativeApi.RunningEngine) sexp =
+        if engine.Api.typeof.isS4.Invoke sexp.ptr <> 0 then true else false
 
     let tryGetSlotTypes engine sexpS4 =
         let globalEnv = REnvironment.globalEnv engine
@@ -322,6 +320,13 @@ module S4 =
             None
         else
             Some { ptr = ptr }
+
+module S3 =
+
+    let isS3 engine sexp =
+        let hasClass = Classes.tryGetClass engine sexp |> Option.isSome
+        let isS4 = S4.isS4 engine sexp
+        hasClass && not isS4
 
 module Dates =
 

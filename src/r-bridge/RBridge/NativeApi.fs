@@ -154,6 +154,9 @@ module NativeApi =
         [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
         type Rf_isVector = delegate of nativeint -> int
 
+        [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+        type Rf_isS4 = delegate of nativeint -> int
+
         type TypesApi =
             { getType: sexp -> int
               isNull: Rf_isNull
@@ -170,7 +173,8 @@ module NativeApi =
               isPrimitive: Rf_isPrimitive
               isLanguage: Rf_isLanguage
               isPairList: Rf_isPairList
-              isVector: Rf_isVector }
+              isVector: Rf_isVector
+              isS4: Rf_isS4 }
 
     module ClosuresApi =
 
@@ -369,7 +373,8 @@ module NativeApi =
                       isPrimitive = get "Rf_isPrimitive"
                       isLanguage = get "Rf_isLanguage"
                       isPairList = get "Rf_isPairList"
-                      isVector = get "Rf_isVector" }
+                      isVector = get "Rf_isVector"
+                      isS4 = get "Rf_isS4" }
                 closures = {
                     getFormals = get "R_ClosureFormals"
                 }

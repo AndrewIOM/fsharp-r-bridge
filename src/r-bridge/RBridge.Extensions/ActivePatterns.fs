@@ -83,9 +83,14 @@ module ActivePatterns =
         | SexpType.Special -> Some sexp
         | _ -> None
 
-    // S4 objects
+    // S4 / S3 objects
     let (|S4Object|_|) engine sexp =
         if S4.isS4 engine sexp then
+            Classes.tryGetClass engine sexp
+        else
+            None
+    let (|S3Object|_|) engine sexp =
+        if S3.isS3 engine sexp then
             Classes.tryGetClass engine sexp
         else
             None
