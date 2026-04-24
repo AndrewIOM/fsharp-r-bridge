@@ -50,6 +50,27 @@ module Create =
 
         { ptr = vec }
 
+    let dateVector (engine: NativeApi.RunningEngine) (dates: int seq) : SymbolicExpression =
+        let vec = realVector engine (dates |> Seq.map float)
+        let dateClass = NativeApi.mkString "Date" engine.Api
+        let cls = NativeApi.install "class" engine.Api
+        NativeApi.setAttribute vec.ptr cls dateClass engine.Api
+        vec
+
+    let dateTimeVector (engine: NativeApi.RunningEngine) (seconds: float seq) (timezone:string option) : SymbolicExpression =
+        let vec = realVector engine seconds
+        let classes = [ "POSIXct"; "POSIXt" ]
+        let classVec = stringVector engine classes
+        let cls = NativeApi.install "class" engine.Api
+        NativeApi.setAttribute vec.ptr cls classVec.ptr engine.Api
+        match timezone with
+        | Some tz ->
+            let tzVec = NativeApi.mkString tz engine.Api
+            let tzSym = NativeApi.install "tzone" engine.Api
+            NativeApi.setAttribute vec.ptr tzSym tzVec engine.Api
+        | None -> ()
+        vec
+
     let logicalVector (engine: NativeApi.RunningEngine) (bools: bool seq) : SymbolicExpression =
         let vec =
             engine.Api.allocVector.Invoke(typeAsInt LogicalVector, Seq.length bools)

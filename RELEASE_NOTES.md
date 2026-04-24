@@ -1,3 +1,4 @@
+* 1.0.8 - Date and date-time support
 * 1.0.7 - S3/S4 detection
 * 1.0.6 - Factor tests and matrix extraction
 * 1.0.5 - Package multi-platform native libraries

@@ -14,16 +14,17 @@ type RComplex =
 [<Struct>]
 type RDate =
     { DaysSinceEpoch: int }
-    member d.ToDateOnly() =
-        System
-            .DateOnly
-            .FromDayNumber(0)
-            .AddDays(d.DaysSinceEpoch)
 
-    member d.ToDateTime() =
-        System
-            .DateTime(1970, 1, 1)
-            .AddDays(float d.DaysSinceEpoch)
+module RDate =
+
+    let unixEpochDayNumber = System.DateOnly(1970,1,1).DayNumber
+
+    let toDateOnly d =
+        System.DateOnly.FromDayNumber(unixEpochDayNumber + d.DaysSinceEpoch)
+    
+    let create daysSinceREpoch =
+        { DaysSinceEpoch = daysSinceREpoch }
+
 
 /// Represents a time in R, which is based
 /// on a 1970 baseline.
@@ -31,18 +32,12 @@ type RDate =
 type RDateTime =
     { SecondsSinceEpoch: float
       TimeZone: string option }
-    member d.ToDateTime() =
-        System
-            .DateTime(1970, 1, 1)
-            .AddSeconds d.SecondsSinceEpoch
 
 module RDateTime =
 
-    let private epoch = System.DateTime(1970, 1, 1)
+    let toDateTimeUtc d =
+        System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc).AddSeconds d.SecondsSinceEpoch
 
-    // TODO Check this function works correctly.
-    let fromDays (days: float) timezone =
-        let ts = System.TimeSpan.FromDays days
-
-        { SecondsSinceEpoch = ts.TotalSeconds
-          TimeZone = timezone }
+    let fromSeconds (seconds: float) (tz: string option) =
+        { SecondsSinceEpoch = seconds
+          TimeZone = tz }

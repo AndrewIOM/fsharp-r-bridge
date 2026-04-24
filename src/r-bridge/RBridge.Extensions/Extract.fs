@@ -33,6 +33,36 @@ module Extract =
         Marshal.Copy(ptr, arr, 0, len)
         arr
 
+    let extractStringArray (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) : string [] =
+        let len = NativeApi.length sexp.ptr engine
+
+        let ptr =
+            engine.Api.pointers.stringPointer sexp.ptr // pointer to SEXP*
+
+        Array.init
+            len
+            (fun i ->
+                let elemPtr = Marshal.ReadIntPtr(ptr, i * IntPtr.Size)
+                let utf8Ptr = engine.Api.translateUtf8.Invoke elemPtr
+                Marshal.PtrToStringUTF8 utf8Ptr )
+
+    let extractDateArray engine sexp : RDate[] =
+        extractFloatArray engine sexp
+        |> Array.map(int >> RDate.create)
+
+    let extractDateTimeArray engine sexp : RDateTime[] =
+        
+        let timeZone =
+            tryGetAttribute sexp "tzone" engine
+            |> Option.bind(fun tz ->
+                match getType engine tz with
+                | CharacterVector -> extractStringArray engine tz |> Array.toList |> Some
+                | _ -> None )
+            |> Option.bind Seq.tryHead
+        
+        extractFloatArray engine sexp
+        |> Array.map(fun s -> RDateTime.fromSeconds s timeZone)
+
     let extractLogicalArray engine sexp : bool option [] =
         extractIntArray engine sexp
         |> Array.map
@@ -59,19 +89,6 @@ module Extract =
             let elemPtr = Marshal.ReadIntPtr(ptr, i * IntPtr.Size)
             { ptr = elemPtr } )
     
-    let extractStringArray (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) : string [] =
-        let len = NativeApi.length sexp.ptr engine
-
-        let ptr =
-            engine.Api.pointers.stringPointer sexp.ptr // pointer to SEXP*
-
-        Array.init
-            len
-            (fun i ->
-                let elemPtr = Marshal.ReadIntPtr(ptr, i * IntPtr.Size)
-                let utf8Ptr = engine.Api.translateUtf8.Invoke elemPtr
-                Marshal.PtrToStringUTF8 utf8Ptr )
-
     let extractList (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) : SymbolicExpression [] =
         let len = NativeApi.length sexp.ptr engine
 

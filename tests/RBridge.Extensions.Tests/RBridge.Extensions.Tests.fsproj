@@ -7,6 +7,7 @@
   <ItemGroup>
     <Compile Include="Create.fs" />
     <Compile Include="Evaluate.fs" />
+    <Compile Include="Extract.fs" />
     <Compile Include="SymbolicExpression.fs" />
   </ItemGroup>
   <ItemGroup>

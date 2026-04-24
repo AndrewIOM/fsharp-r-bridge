@@ -53,6 +53,22 @@ let create =
 
               Expect.equal roundTrip (bools |> Array.map Some) "float list was changed in R"
 
+          testProperty "Date only vector"
+          <| fun (daysSince1970: int array) ->
+            let v = Create.dateVector engine.Value daysSince1970
+            let roundTrip = Extract.extractDateArray engine.Value v
+            let daysAfter = roundTrip |> Array.map(fun d -> d.DaysSinceEpoch)
+            Expect.sequenceEqual daysAfter daysSince1970 "dates were changed in R"
+
+          testProperty "Date-time vector"
+          <| fun (secondsSince1970: float array) ->
+            let v = Create.dateTimeVector engine.Value secondsSince1970 None
+            let roundTrip = Extract.extractDateTimeArray engine.Value v
+            let secondsAfter = roundTrip |> Array.map(fun d -> d.SecondsSinceEpoch)
+            Expect.sequenceEqual
+                (secondsAfter |> Seq.filter (System.Double.IsNaN >> not))
+                (secondsSince1970 |> Seq.filter (System.Double.IsNaN >> not)) "dates were changed in R"
+
           ]
 
 [<Tests>]
