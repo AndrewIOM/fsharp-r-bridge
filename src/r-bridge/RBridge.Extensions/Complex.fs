@@ -22,8 +22,11 @@ module RDate =
     let toDateOnly d =
         System.DateOnly.FromDayNumber(unixEpochDayNumber + d.DaysSinceEpoch)
     
-    let create daysSinceREpoch =
+    let fromDaysSinceEpoch daysSinceREpoch =
         { DaysSinceEpoch = daysSinceREpoch }
+
+    let fromDateOnly(d: System.DateOnly) =
+        { DaysSinceEpoch = d.DayNumber - unixEpochDayNumber }
 
 
 /// Represents a time in R, which is based
@@ -35,8 +38,31 @@ type RDateTime =
 
 module RDateTime =
 
+    open System
+
+    let unixEpoch = DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+
     let toDateTimeUtc d =
-        System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc).AddSeconds d.SecondsSinceEpoch
+        unixEpoch.AddSeconds d.SecondsSinceEpoch
+
+    let fromDateTime(d: DateTime) =
+        match d.Kind with
+        | DateTimeKind.Utc ->
+            { SecondsSinceEpoch = (d - unixEpoch).TotalSeconds
+              TimeZone = Some "UTC" }
+
+        | DateTimeKind.Local ->
+            let utc = d.ToUniversalTime()
+            { SecondsSinceEpoch = (utc - unixEpoch).TotalSeconds
+              TimeZone = Some TimeZoneInfo.Local.Id }
+
+        | DateTimeKind.Unspecified ->
+            let utc = DateTime.SpecifyKind(d, DateTimeKind.Utc)
+            { SecondsSinceEpoch = (utc - unixEpoch).TotalSeconds
+              TimeZone = Some "UTC" }
+
+        | _ ->
+            failwithf "Unexpected DateTimeKind %A" d.Kind
 
     let fromSeconds (seconds: float) (tz: string option) =
         { SecondsSinceEpoch = seconds

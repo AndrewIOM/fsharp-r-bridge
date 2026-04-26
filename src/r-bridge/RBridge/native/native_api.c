@@ -26,6 +26,14 @@ int rbridge_typeof(SEXP x) {
     return TYPEOF(x);
 }
 
+SEXP rbridge_na_string() {
+    return NA_STRING;
+}
+
+double rbridge_na_real() {
+    return NA_REAL;
+}
+
 // Set the CAR (value) of a pairlist node
 void rbridge_set_car(SEXP node, SEXP value) {
     SETCAR(node, value);

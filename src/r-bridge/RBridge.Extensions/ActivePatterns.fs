@@ -104,7 +104,7 @@ module ActivePatterns =
 
     let (|DataFrame|_|) engine (sexp: SymbolicExpression) =
         match SymbolicExpression.getClasses engine sexp with
-        | l when Seq.contains "data.frame" l -> Some sexp
+        | l when Seq.contains (Some "data.frame") l -> Some sexp
         | _ -> None
 
     let (|Environment|_|) engine (sexp: SymbolicExpression) =

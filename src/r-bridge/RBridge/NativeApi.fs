@@ -267,6 +267,12 @@ module NativeApi =
         [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
         extern int rbridge_typeof(nativeint sexp)
 
+        [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
+        extern double rbridge_na_real()
+
+        [<DllImport("rbridge-native", CallingConvention = CallingConvention.Cdecl)>]
+        extern IntPtr rbridge_na_string()
+
 
     type Api =
         { construct: Construction.ConstructionApi
@@ -297,7 +303,9 @@ module NativeApi =
           globalEnv: sexp
           emptyEnv: sexp
           unboundVal: sexp
-          nilValue: sexp }
+          nilValue: sexp
+          naReal: float
+          naString: sexp }
 
     and PointerAccess =
         { integerPointer: sexp -> sexp // INTEGER(x)
@@ -406,6 +414,8 @@ module NativeApi =
                 emptyEnv = nilVal
                 unboundVal = nilVal
                 nilValue = nilVal
+                naReal = nan
+                naString = nilVal
                 pointers =
                     { integerPointer = dataptr.Invoke
                       realPointer = dataptr.Invoke
@@ -511,6 +521,9 @@ module NativeApi =
 
         let unboundValue = Marshal.ReadIntPtr unboundPtrLoc
 
+        let naReal = Custom.rbridge_na_real()
+        let naString = Custom.rbridge_na_string()
+
         { run with
               Api =
                   { run.Api with
@@ -518,7 +531,9 @@ module NativeApi =
                         globalEnv = envVal
                         emptyEnv = emptyEnv
                         unboundVal = unboundValue
-                        missingArg = missingVal } }
+                        missingArg = missingVal
+                        naString = naString
+                        naReal = naReal } }
 
     /// allocate an UTF8 null-terminated string and call Rf_mkString.
     /// Returns both the resulting sexp and the native pointer so that the

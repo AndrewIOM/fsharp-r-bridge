@@ -71,7 +71,7 @@ let symExTests =
             let xR = Evaluate.tryEval "as.POSIXlt(Sys.time())" (REnvironment.globalEnv engine.Value) engine.Value
             let x = Expect.wantOk xR "Could not eval code"
             let classes = SymbolicExpression.getClasses engine.Value x
-            Expect.sequenceEqual classes [ "POSIXlt"; "POSIXt" ] "Did not have classes in correct order"
+            Expect.sequenceEqual classes [ Some "POSIXlt"; Some "POSIXt" ] "Did not have classes in correct order"
 
     ]
 

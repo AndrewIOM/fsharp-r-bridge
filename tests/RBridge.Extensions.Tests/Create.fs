@@ -3,6 +3,7 @@ module SExpTests
 open Expecto
 open RBridge
 open RBridge.Extensions
+open FsCheck
 
 /// Guards from symbol names that R will reject
 /// from being passed into R.
@@ -21,6 +22,12 @@ let engine =
          | NativeApi.Running r -> r
          | _ -> failwith "Could not start R instance")
 
+let removeNans seq =
+    seq |> Seq.filter(fun i ->
+        match i with
+        | Some i -> System.Double.IsNaN i |> not
+        | None -> true )    
+
 [<Tests>]
 let create =
     testList
@@ -28,46 +35,52 @@ let create =
         [
 
           testProperty "Integer vector"
-          <| fun (ints: int array) ->
+          <| fun (ints: int option array) ->
               let v = Create.intVector engine.Value ints
               let roundTrip = Extract.extractIntArray engine.Value v
-              Expect.equal roundTrip ints "integer list was changed in R"
+              Expect.sequenceEqual roundTrip ints "integer list was changed in R"
 
           testProperty "Real vector"
-          <| fun (ints: float array) ->
+          <| fun (ints: float option array) ->
               let v = Create.realVector engine.Value ints
               let roundTrip = Extract.extractFloatArray engine.Value v
 
               Expect.sequenceEqual
-                  (roundTrip
-                   |> Seq.filter (System.Double.IsNaN >> not))
-                  (ints |> Seq.filter (System.Double.IsNaN >> not))
+                  (roundTrip |> removeNans)
+                  (ints |> removeNans)
                   "float list was changed in R"
 
+          testCase "Infinity and negative infinity round-trip" <| fun _ ->
+            let v = [ Some infinity; Some -infinity]
+            let v2 = Create.realVector engine.Value v
+            let roundTrip = Extract.extractFloatArray engine.Value v2
+            Expect.sequenceEqual roundTrip v "Inf values were transformed"
+
           testProperty "Logical vector"
-          <| fun (bools: bool array) ->
+          <| fun (bools: bool option array) ->
               let v = Create.logicalVector engine.Value bools
 
               let roundTrip =
                   Extract.extractLogicalArray engine.Value v
 
-              Expect.equal roundTrip (bools |> Array.map Some) "float list was changed in R"
+              Expect.equal roundTrip bools "float list was changed in R"
 
           testProperty "Date only vector"
-          <| fun (daysSince1970: int array) ->
-            let v = Create.dateVector engine.Value daysSince1970
+          <| fun (daysSince1970: int option array) ->
+            let dates = daysSince1970 |> Array.map (Option.map RDate.fromDaysSinceEpoch)
+            let v = Create.dateVector engine.Value dates
             let roundTrip = Extract.extractDateArray engine.Value v
-            let daysAfter = roundTrip |> Array.map(fun d -> d.DaysSinceEpoch)
-            Expect.sequenceEqual daysAfter daysSince1970 "dates were changed in R"
+            Expect.sequenceEqual roundTrip dates "dates were changed in R"
 
           testProperty "Date-time vector"
-          <| fun (secondsSince1970: float array) ->
-            let v = Create.dateTimeVector engine.Value secondsSince1970 None
+          <| fun secondsSince1970 ->
+            let dates = secondsSince1970 |> Array.map (Option.map(fun d -> RDateTime.fromSeconds d None))
+            let v = Create.dateTimeVector engine.Value dates
             let roundTrip = Extract.extractDateTimeArray engine.Value v
-            let secondsAfter = roundTrip |> Array.map(fun d -> d.SecondsSinceEpoch)
             Expect.sequenceEqual
-                (secondsAfter |> Seq.filter (System.Double.IsNaN >> not))
-                (secondsSince1970 |> Seq.filter (System.Double.IsNaN >> not)) "dates were changed in R"
+                (dates |> Array.filter(fun d -> match d with | Some d -> not <| System.Double.IsNaN d.SecondsSinceEpoch | None -> true))
+                (roundTrip |> Array.filter(fun d -> match d with | Some d -> not <| System.Double.IsNaN d.SecondsSinceEpoch | None -> true))
+                "dates were changed in R"
 
           ]
 
@@ -83,7 +96,7 @@ let stress =
 
               for i in 1 .. 10000 do
                   let v =
-                      Create.stringVector engine.Value [| "a"; "b"; "c" |]
+                      Create.stringVector engine.Value [| Some "a"; Some "b"; Some "c" |]
 
                   let t =
                       SymbolicExpression.getType engine.Value v
@@ -158,10 +171,10 @@ let factorTests =
     testList "Factors" [
 
         testCase "Gets factor levels" <| fun _ ->
-            testFactor engine.Value """factor(c("a", "b", "a"))""" (Some ["a"; "b"])
+            testFactor engine.Value """factor(c("a", "b", "a"))""" (Some [Some "a"; Some "b"])
 
         testCase "Gets factor levels (alt order)" <| fun _ ->
-            testFactor engine.Value """factor(c("b", "b", "a"))""" (Some ["a"; "b"])
+            testFactor engine.Value """factor(c("b", "b", "a"))""" (Some [Some "a"; Some "b"])
 
         testCase "Gets factor levels (empty factor)" <| fun _ ->
             testFactor engine.Value """factor(character(0))""" (Some [])

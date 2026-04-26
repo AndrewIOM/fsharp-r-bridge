@@ -82,7 +82,7 @@ let environmentTests =
           testCase "ofSExp rejects non-environments"
           <| fun _ ->
               let str =
-                  Create.stringVector engine.Value [ "hello" ]
+                  Create.stringVector engine.Value [ Some "hello" ]
 
               match REnvironment.ofSExp engine.Value str with
               | None -> ()
@@ -148,6 +148,6 @@ let evalTests =
               let r =
                   sexp |> Extract.extractFloatArray engine.Value
 
-              Expect.equal r [| 2. |] "1+1 = 2"
+              Expect.equal r [| Some 2. |] "1+1 = 2"
 
          ]
