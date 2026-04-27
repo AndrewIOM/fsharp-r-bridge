@@ -5,9 +5,10 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Complex.fs" />
+    <Compile Include="RTypes.fs" />
     <Compile Include="Extract.fs" />
     <Compile Include="Create.fs" />
+    <Compile Include="Structures.fs" />
     <Compile Include="SymbolicExpression.fs" />
     <Compile Include="ActivePatterns.fs" />
     <ProjectReference Include="../RBridge/RBridge.fsproj" />
