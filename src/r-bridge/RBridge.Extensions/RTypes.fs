@@ -1,8 +1,7 @@
 namespace RBridge.Extensions
 
-/// R has a 'complex' type, which is two floats
-/// stored together. There is no built-in .NET
-/// equivalent.
+/// Represents an R complex number, which is
+/// composed of a real and imaginary component.
 [<Struct>]
 type RComplex =
     { Real: float
@@ -10,7 +9,7 @@ type RComplex =
     static member Create(real, imaginary) = { Real = real; Imag = imaginary }
 
 /// Represents a date in R, which is based
-/// on a 1970 baseline.
+/// on the unix 1970-01-01 baseline.
 [<Struct>]
 type RDate =
     { DaysSinceEpoch: int }
@@ -30,7 +29,9 @@ module RDate =
 
 
 /// Represents a time in R, which is based
-/// on a 1970 baseline.
+/// on the unix 1970-01-01 baseline. Internally,
+/// R stores date-times as the seconds since the
+/// unix baseline, and includes time zone metadata.
 [<Struct>]
 type RDateTime =
     { SecondsSinceEpoch: float
@@ -45,6 +46,8 @@ module RDateTime =
     let toDateTimeUtc d =
         unixEpoch.AddSeconds d.SecondsSinceEpoch
 
+    /// Create an R date-time from a .NET DateTime, storing
+    /// the timezone as metadata on the R representation.
     let fromDateTime(d: DateTime) =
         match d.Kind with
         | DateTimeKind.Utc ->
@@ -64,6 +67,8 @@ module RDateTime =
         | _ ->
             failwithf "Unexpected DateTimeKind %A" d.Kind
 
+    /// Create an RDateTime from the number of seconds elapsed
+    /// since 1970-01-01 00:00:00.
     let fromSeconds (seconds: float) (tz: string option) =
         { SecondsSinceEpoch = seconds
           TimeZone = tz }

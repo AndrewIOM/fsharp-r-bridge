@@ -1,10 +1,11 @@
 namespace RBridge.Extensions
 
-open System
-open System.Runtime.InteropServices
 open RBridge
 open RBridge.SymbolicExpression
 
+/// R pairlists are LISP-style linked lists that have been largely
+/// superseded in user-facing code with R lists. Pairlist construction
+/// is used internally in RBridge for constructing function arguments.
 module PairList =
 
     let rec build (engine: NativeApi.RunningEngine) (args: (string option * SymbolicExpression) list) =
@@ -60,6 +61,8 @@ module Promise =
         | _ -> sexp
 
 
+/// Convenience functions for evaluating R code and calling
+/// R functions.
 module Evaluate =
 
     /// Evaluate raw R code in the R engine. The code must contain

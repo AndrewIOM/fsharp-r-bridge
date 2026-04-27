@@ -17,7 +17,7 @@ module NAs =
 
     let intNa = -2147483648
 
-
+/// Functions for creating R values from .NET values.
 module Create =
 
     let stringVector (engine: NativeApi.RunningEngine) (strings: string option seq) : SymbolicExpression =
