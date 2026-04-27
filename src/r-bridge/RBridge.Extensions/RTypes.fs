@@ -1,5 +1,11 @@
 namespace RBridge.Extensions
 
+/// An environment in R.
+type REnvironment =
+    private
+    | REnvironment of RBridge.NativeApi.sexp
+    member this.Pointer = this |> fun (REnvironment p) -> p
+
 /// Represents an R complex number, which is
 /// composed of a real and imaginary component.
 [<Struct>]

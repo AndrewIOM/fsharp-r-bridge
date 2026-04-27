@@ -6,7 +6,7 @@ open SExpTests
 
 
 let dateTimeTrip timezone =
-    let globalEnv = REnvironment.globalEnv engine.Value
+    let globalEnv = Environment.globalEnv engine.Value
     let d = Expect.wantOk (Evaluate.tryEval (sprintf "as.POSIXct('2000-03-12 15:30:45', tz='%s')" timezone) globalEnv engine.Value) "Could not make date in R"
     let extr = Extract.extractDateTimeArray engine.Value d
     let expectedNet =
@@ -29,7 +29,7 @@ let dates =
     testList "Dates and times" [
 
         testCase "Date round trip" <| fun _ ->
-            let globalEnv = REnvironment.globalEnv engine.Value
+            let globalEnv = Environment.globalEnv engine.Value
             let d = Expect.wantOk (Evaluate.tryEval "as.Date('2000-03-12')" globalEnv engine.Value) "Could not make date in R"
             let extr = Extract.extractDateArray engine.Value d
             let expectedNet = System.DateOnly(2000,3,12)

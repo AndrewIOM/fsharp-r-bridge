@@ -137,8 +137,8 @@ let closureTests =
         testCase "Gets correct closures for mean" <| fun _ ->
 
             // Retrieve the built-in closure "mean"
-            let baseEnv = REnvironment.ofNamespace engine.Value "base"
-            let mean = REnvironment.tryGetValue engine.Value baseEnv "mean"
+            let baseEnv = Environment.ofNamespace engine.Value "base"
+            let mean = Environment.tryGetValue engine.Value baseEnv "mean"
             Expect.isSome mean "Could not find 'mean' in base."
 
             let formals = Closures.tryFormals engine.Value mean.Value
@@ -157,7 +157,7 @@ let closureTests =
     ]
 
 let testFactor engine code expected =
-    let glob = REnvironment.globalEnv engine
+    let glob = Environment.globalEnv engine
     let sexp =
         Evaluate.tryEval code glob engine
         |> Result.toOption

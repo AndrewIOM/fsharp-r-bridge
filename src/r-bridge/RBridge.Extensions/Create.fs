@@ -5,13 +5,6 @@ open System.Runtime.InteropServices
 open RBridge
 open RBridge.SymbolicExpression
 
-/// An environment in R.
-type REnvironment =
-    private
-    | REnvironment of RBridge.NativeApi.sexp
-    member this.Pointer = this |> fun (REnvironment p) -> p
-
-
 /// NA values used by R in its atomic types.
 module NAs =
 

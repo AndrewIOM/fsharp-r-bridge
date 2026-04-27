@@ -113,7 +113,7 @@ module Evaluate =
         | Error errPtr -> Error "R evaluation error"
 
 
-module REnvironment =
+module Environment =
 
     /// Return a reference to the R global environment.
     let globalEnv engine =
@@ -209,7 +209,7 @@ module S4 =
         if engine.Api.typeof.isS4.Invoke sexp.ptr <> 0 then true else false
 
     let tryGetSlotTypes engine sexpS4 =
-        let globalEnv = REnvironment.globalEnv engine
+        let globalEnv = Environment.globalEnv engine
 
         Classes.tryGetClass engine sexpS4
         |> Option.bind

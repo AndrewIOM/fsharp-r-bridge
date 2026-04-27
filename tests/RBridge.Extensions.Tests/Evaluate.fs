@@ -8,12 +8,12 @@ open SExpTests
 [<Tests>]
 let environmentTests =
     testList
-        "REnvironment"
+        "Environment"
         [
 
           testCase "globalEnv is an environment"
           <| fun _ ->
-              let env = REnvironment.globalEnv engine.Value
+              let env = Environment.globalEnv engine.Value
               let sexp = { ptr = env.Pointer }
 
               let t =
@@ -24,7 +24,7 @@ let environmentTests =
           testCase "ofNamespace loads base namespace"
           <| fun _ ->
               let baseNs =
-                  REnvironment.ofNamespace engine.Value "base"
+                  Environment.ofNamespace engine.Value "base"
 
               let sexp = { ptr = baseNs.Pointer }
 
@@ -36,7 +36,7 @@ let environmentTests =
           testCase "ofPackage loads correct environment"
           <| fun _ ->
               let dsEnv =
-                  REnvironment.ofPackage engine.Value "datasets"
+                  Environment.ofPackage engine.Value "datasets"
 
               let sexp = { ptr = dsEnv.Pointer }
 
@@ -46,7 +46,7 @@ let environmentTests =
               Expect.equal t SymbolicExpression.Environment "getNamespace('base') should return an environment"
 
               let mtCars =
-                REnvironment.tryGetValue engine.Value dsEnv "mtcars"
+                Environment.tryGetValue engine.Value dsEnv "mtcars"
                 |> fun m -> Expect.wantSome m "Could not find mtcars"
               
               SymbolicExpression.print engine.Value mtCars
@@ -56,7 +56,7 @@ let environmentTests =
 
           testCase "createEmpty creates an environment"
           <| fun _ ->
-              let env = REnvironment.createEmpty engine.Value
+              let env = Environment.createEmpty engine.Value
               let sexp = { ptr = env.Pointer }
 
               let t =
@@ -66,16 +66,16 @@ let environmentTests =
 
           testCase "createEmpty environments are unique"
           <| fun _ ->
-              let a = REnvironment.createEmpty engine.Value
-              let b = REnvironment.createEmpty engine.Value
+              let a = Environment.createEmpty engine.Value
+              let b = Environment.createEmpty engine.Value
               Expect.notEqual a.Pointer b.Pointer "The environments were the same"
 
           testCase "ofSExp recognises environments"
           <| fun _ ->
-              let env = REnvironment.globalEnv engine.Value
+              let env = Environment.globalEnv engine.Value
               let sexp = { ptr = env.Pointer }
 
-              match REnvironment.ofSExp engine.Value sexp with
+              match Environment.ofSExp engine.Value sexp with
               | Some _ -> () // OK
               | None -> failtest "ofSExp should return Some for environment"
 
@@ -84,13 +84,13 @@ let environmentTests =
               let str =
                   Create.stringVector engine.Value [ Some "hello" ]
 
-              match REnvironment.ofSExp engine.Value str with
+              match Environment.ofSExp engine.Value str with
               | None -> ()
               | Some _ -> failtest "ofSExp should return None for non-environment"
 
           testProperty "Lookup of bound symbol always returns Some"
           <| fun value ->
-              let env = REnvironment.createEmpty engine.Value
+              let env = Environment.createEmpty engine.Value
               let eSym = NativeApi.install "env" engine.Value.Api
 
               NativeApi.defineVar eSym env.Pointer engine.Value.Api.globalEnv engine.Value.Api
@@ -98,12 +98,12 @@ let environmentTests =
 
               Evaluate.tryEval
                   (sprintf "assign('x', %i, envir = env)" value)
-                  (REnvironment.globalEnv engine.Value)
+                  (Environment.globalEnv engine.Value)
                   engine.Value
               |> ignore
 
               let found =
-                  REnvironment.tryGetValue engine.Value env "x"
+                  Environment.tryGetValue engine.Value env "x"
 
               match found with
               | None -> false
@@ -120,8 +120,8 @@ let environmentTests =
                   true
               else
                   printfn "Name = '%s'" sym
-                  let emptyEnv = REnvironment.globalEnv engine.Value
-                  REnvironment.tryGetValue engine.Value emptyEnv sym = None
+                  let emptyEnv = Environment.globalEnv engine.Value
+                  Environment.tryGetValue engine.Value emptyEnv sym = None
 
           ]
 
@@ -133,7 +133,7 @@ let evalTests =
 
           testCase "eval returns numeric type for 1+1"
           <| fun _ ->
-              let glob = REnvironment.globalEnv engine.Value
+              let glob = Environment.globalEnv engine.Value
 
               let sexp =
                   Evaluate.tryEval "1+1" glob engine.Value
