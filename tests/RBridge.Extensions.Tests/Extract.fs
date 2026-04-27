@@ -50,5 +50,11 @@ let dates =
         testCase "Date time round trip (non-UTC)" <| fun _ ->
             dateTimeTrip "Europe/London"
 
+        testCase "Round-trip DateOnly to RDate" <| fun _ ->
+            let d = System.DateOnly(1999, 12, 31)
+            let r = RDate.fromDateOnly d
+            let back = RDate.toDateOnly r
+            Expect.equal r.DaysSinceEpoch (d.DayNumber - RDate.unixEpochDayNumber) "Day offset incorrect"
+            Expect.equal back d "Round-trip failed"
 
     ]
