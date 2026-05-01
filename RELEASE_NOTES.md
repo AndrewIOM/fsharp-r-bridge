@@ -1,3 +1,4 @@
+* 1.1.1 - Fix windows default R path lookups
 * 1.1.0 - Option-based creation and extraction
 * 1.0.8 - Date and date-time support
 * 1.0.7 - S3/S4 detection

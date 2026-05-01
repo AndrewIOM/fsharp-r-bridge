@@ -36,6 +36,10 @@ There are three components:
 In R.NET, full semantics around R types were included. However, here these concerns
 have been moved to upstream libraries, primarily RProvider.
 
+## Notes
+
+- On intel macs, R must be initialised on the process main thread or it will crash with 'Error: C stack usage  (some big number) is too close to the limit'.
+
 ## TODO
 
 * complete the `r-tool` so that renv environments can be
