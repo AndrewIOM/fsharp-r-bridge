@@ -52,7 +52,7 @@ System.Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let binDir = __SOURCE_DIRECTORY__ @@ "bin"
 
 let release =
-    System.IO.File.ReadLines "RELEASE_NOTES.MD" |> Fake.Core.ReleaseNotes.parse
+    System.IO.File.ReadLines "RELEASE_NOTES.md" |> Fake.Core.ReleaseNotes.parse
 
 // Generate assembly info files with the right version & up-to-date information
 Target.create "AssemblyInfo" (fun _ ->
