@@ -11,11 +11,11 @@ let loc = EngineHost.tryFindSystemR() |> Option.get
 printfn "found R at %A" loc
 
 let engine =
-    match RInterop.initialiseAt loc with
+    match RInterop.initialiseAt loc Logging.console with
     | NativeApi.Running r -> r
     | _ -> failwith "Could not start R instance"
 
-let globalEnv = REnvironment.globalEnv engine
+let globalEnv = Environment.globalEnv engine
 
 let result1 = Evaluate.tryEval "sqrt(49)" globalEnv engine |> Result.toOption |> Option.get
 let t1 = SymbolicExpression.getType engine result1

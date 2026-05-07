@@ -78,4 +78,5 @@ let symExTests =
 
 [<EntryPoint>]
 let main argv =
+    engine.Force () |> ignore
     Tests.runTestsInAssemblyWithCLIArgs [ Sequenced ] argv
