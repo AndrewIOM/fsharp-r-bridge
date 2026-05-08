@@ -64,47 +64,47 @@ module SymbolicExpression =
             || api.isVector.Invoke p <> 0
         )
 
-    let getType (engine: RBridge.NativeApi.RunningEngine) (sexp: SymbolicExpression) : SexpType =
-        if engine.Api.typeof.isNull.Invoke sexp.ptr <> 0 then
+    let getType (engine: RBridge.RInterop.RInstance) (sexp: SymbolicExpression) : SexpType =
+        if engine.invokeInt (fun e -> e.Api.typeof.isNull.Invoke sexp.ptr) <> 0 then
             Nil
-        elif engine.Api.typeof.isSymbol.Invoke sexp.ptr <> 0 then
+        elif engine.invokeInt (fun e -> e.Api.typeof.isSymbol.Invoke sexp.ptr) <> 0 then
             Symbol
-        elif engine.Api.typeof.isLanguage.Invoke sexp.ptr <> 0 then
+        elif engine.invokeInt (fun e -> e.Api.typeof.isLanguage.Invoke sexp.ptr) <> 0 then
             Language
-        elif engine.Api.typeof.isPairList.Invoke sexp.ptr <> 0 then
+        elif engine.invokeInt (fun e -> e.Api.typeof.isPairList.Invoke sexp.ptr) <> 0 then
             Pairlist
-        elif engine.Api.typeof.isFunction.Invoke sexp.ptr <> 0 then
-            if engine.Api.typeof.isPrimitive.Invoke sexp.ptr <> 0 then
-                let t = NativeApi.typeOf sexp.ptr engine
+        elif engine.invokeInt (fun e -> e.Api.typeof.isFunction.Invoke sexp.ptr) <> 0 then
+            if engine.invokeInt (fun e -> e.Api.typeof.isPrimitive.Invoke sexp.ptr) <> 0 then
+                let t = engine.invokeInt (NativeApi.typeOf sexp.ptr)
 
                 if t = 7 then Special
                 elif t = 8 then Builtin
                 else Any // Shouldn't happen
             else
                 Closure
-        elif engine.Api.typeof.isEnvironment.Invoke sexp.ptr
+        elif engine.invokeInt(fun e-> e.Api.typeof.isEnvironment.Invoke sexp.ptr)
              <> 0 then
             Environment
-        elif engine.Api.typeof.isLogical.Invoke sexp.ptr <> 0 then
+        elif engine.invokeInt(fun e-> e.Api.typeof.isLogical.Invoke sexp.ptr) <> 0 then
             LogicalVector
-        elif engine.Api.typeof.isInteger.Invoke sexp.ptr <> 0 then
+        elif engine.invokeInt(fun e-> e.Api.typeof.isInteger.Invoke sexp.ptr) <> 0 then
             IntegerVector
-        elif engine.Api.typeof.isReal.Invoke sexp.ptr <> 0 then
+        elif engine.invokeInt(fun e-> e.Api.typeof.isReal.Invoke sexp.ptr) <> 0 then
             RealVector
-        elif engine.Api.typeof.isComplex.Invoke sexp.ptr <> 0 then
+        elif engine.invokeInt(fun e-> e.Api.typeof.isComplex.Invoke sexp.ptr) <> 0 then
             ComplexVector
-        elif engine.Api.typeof.isString.Invoke sexp.ptr <> 0 then
+        elif engine.invokeInt(fun e-> e.Api.typeof.isString.Invoke sexp.ptr) <> 0 then
             CharacterVector
-        elif engine.Api.typeof.isList.Invoke sexp.ptr <> 0 then
+        elif engine.invokeInt(fun e-> e.Api.typeof.isList.Invoke sexp.ptr) <> 0 then
             Pairlist
-        elif engine.Api.typeof.isExpression.Invoke sexp.ptr <> 0 then
+        elif engine.invokeInt(fun e-> e.Api.typeof.isExpression.Invoke sexp.ptr) <> 0 then
             List
-        elif (NativeApi.typeOf sexp.ptr engine) = 9 then
+        elif engine.invokeInt (NativeApi.typeOf sexp.ptr) = 9 then
             Char
-        elif isPromise engine.Api.typeof sexp then
+        elif engine.invokeInt(fun e -> if isPromise e.Api.typeof sexp then 1 else 0) = 1 then
             Promise
         else
-            let t = NativeApi.typeOf sexp.ptr engine
+            let t = engine.invokeInt (NativeApi.typeOf sexp.ptr)
             match t with
             | 13 -> IntegerVector // for factors.
             | 19 -> List
@@ -125,66 +125,67 @@ module SymbolicExpression =
     let tryGetAttribute
         (sexp: SymbolicExpression)
         (name: string)
-        (engine: NativeApi.RunningEngine)
+        (engine: RInterop.RInstance)
         : SymbolicExpression option =
-        let sym = NativeApi.install name engine.Api
+        let sym = NativeApi.install name |> engine.invoke
 
         let attrPtr =
-            NativeApi.getAttribute sexp.ptr sym engine.Api
+            NativeApi.getAttribute sexp.ptr sym |> engine.invoke
 
-        if attrPtr = engine.Api.nilValue then
+        if attrPtr = engine.invoke(fun e -> e.Api.nilValue) then
             None
         else
             Some { ptr = attrPtr }
 
     let setAttribute
-        (engine: NativeApi.RunningEngine)
+        (engine: RInterop.RInstance)
         (sexp: SymbolicExpression)
         (name: string)
         (value: SymbolicExpression)
         : unit =
 
-        let sym = NativeApi.install name engine.Api
-        NativeApi.setAttribute sexp.ptr sym value.ptr engine.Api
+        let sym = NativeApi.install name |> engine.invoke
+        NativeApi.setAttribute sexp.ptr sym value.ptr |> engine.invokeUnit
 
-    let print (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) = NativeApi.printVal sexp.ptr engine
+    let print (engine: RInterop.RInstance) (sexp: SymbolicExpression) =
+        engine.invokeUnit(NativeApi.printVal sexp.ptr)
 
     let getVectorElement
-        (engine: NativeApi.RunningEngine)
+        (engine: RInterop.RInstance)
         (sexp: SymbolicExpression)
         (index: int)
         : SymbolicExpression =
         match getType engine sexp with
         | LogicalVector ->
             let ptr =
-                engine.Api.pointers.logicalPointer sexp.ptr
+                engine.invoke(fun e -> e.Api.pointers.logicalPointer sexp.ptr)
 
             let value =
                 Marshal.ReadInt32(ptr, index * sizeof<int>)
 
             let out =
-                engine.Api.allocVector.Invoke(typeAsInt LogicalVector, 1)
+                engine.invoke(fun e -> e.Api.allocVector.Invoke(typeAsInt LogicalVector, 1))
 
-            let outPtr = engine.Api.pointers.logicalPointer out
+            let outPtr = engine.invoke(fun e -> e.Api.pointers.logicalPointer out)
             Marshal.WriteInt32(outPtr, 0, value)
             { ptr = out }
 
         | IntegerVector ->
             let ptr =
-                engine.Api.pointers.integerPointer sexp.ptr
+                engine.invoke(fun e -> e.Api.pointers.integerPointer sexp.ptr)
 
             let value =
                 Marshal.ReadInt32(ptr, index * sizeof<int>)
 
             let out =
-                NativeApi.allocVector (typeAsInt IntegerVector) 1 engine
+                NativeApi.allocVector (typeAsInt IntegerVector) 1 |> engine.invoke
 
-            let outPtr = engine.Api.pointers.integerPointer out
+            let outPtr = engine.invoke(fun e -> e.Api.pointers.integerPointer out)
             Marshal.WriteInt32(outPtr, 0, value)
             { ptr = out }
 
         | RealVector ->
-            let ptr = engine.Api.pointers.realPointer sexp.ptr
+            let ptr = engine.invoke(fun e -> e.Api.pointers.realPointer sexp.ptr)
 
             let bits =
                 Marshal.ReadInt64(ptr, index * sizeof<int64>)
@@ -193,53 +194,53 @@ module SymbolicExpression =
                 System.BitConverter.Int64BitsToDouble bits
 
             let out =
-                engine.Api.allocVector.Invoke(typeAsInt RealVector, 1)
+                engine.invoke(fun e -> e.Api.allocVector.Invoke(typeAsInt RealVector, 1))
 
-            let outPtr = engine.Api.pointers.realPointer out
+            let outPtr = engine.invoke(fun e -> e.Api.pointers.realPointer out)
             Marshal.WriteInt64(outPtr, 0, System.BitConverter.DoubleToInt64Bits value)
             { ptr = out }
 
         | ComplexVector ->
-            let ptr = engine.Api.pointers.realPointer sexp.ptr // complexPointer would be nicer, but realPointer works
+            let ptr = engine.invoke(fun e -> e.Api.pointers.realPointer sexp.ptr) // complexPointer would be nicer, but realPointer works
             let realBits = Marshal.ReadInt64(ptr, index * 16)
             let imagBits = Marshal.ReadInt64(ptr, index * 16 + 8)
 
             let out =
-                engine.Api.allocVector.Invoke(typeAsInt ComplexVector, 1)
+                engine.invoke(fun e -> e.Api.allocVector.Invoke(typeAsInt ComplexVector, 1))
 
-            let outPtr = engine.Api.pointers.realPointer out
+            let outPtr = engine.invoke(fun e -> e.Api.pointers.realPointer out)
             Marshal.WriteInt64(outPtr, 0, realBits)
             Marshal.WriteInt64(outPtr, 8, imagBits)
             { ptr = out }
 
         | CharacterVector ->
             let ptr =
-                engine.Api.pointers.stringPointer sexp.ptr
+                engine.invoke(fun e -> e.Api.pointers.stringPointer sexp.ptr)
 
             { ptr = Marshal.ReadIntPtr(ptr, index * System.IntPtr.Size) }
 
         | RawVector ->
-            let ptr = engine.Api.pointers.charPointer sexp.ptr
+            let ptr = engine.invoke(fun e -> e.Api.pointers.charPointer sexp.ptr)
             let value = Marshal.ReadByte(ptr, index)
 
             let out =
-                engine.Api.allocVector.Invoke(typeAsInt RawVector, 1)
+                engine.invoke(fun e -> e.Api.allocVector.Invoke(typeAsInt RawVector, 1))
 
-            let outPtr = engine.Api.pointers.charPointer out
+            let outPtr = engine.invoke(fun e -> e.Api.pointers.charPointer out)
             Marshal.WriteByte(outPtr, 0, value)
             { ptr = out }
 
         // Expression vector:
         | List ->
             let ptr =
-                engine.Api.pointers.vectorPointer sexp.ptr
+                engine.invoke(fun e -> e.Api.pointers.vectorPointer sexp.ptr)
 
             { ptr = Marshal.ReadIntPtr(ptr, index * System.IntPtr.Size) }
 
         | s -> failwithf "Could not get vector element of type: %A" s
 
     let setVectorElement
-        (engine: NativeApi.RunningEngine)
+        (engine: RInterop.RInstance)
         (vector: SymbolicExpression)
         (index: int)
         (value: SymbolicExpression)
@@ -250,10 +251,10 @@ module SymbolicExpression =
         // Logical vector
         | LogicalVector ->
             let ptr =
-                engine.Api.pointers.logicalPointer vector.ptr
+                engine.invoke(fun e -> e.Api.pointers.logicalPointer vector.ptr)
 
             let vptr =
-                engine.Api.pointers.logicalPointer value.ptr
+                engine.invoke(fun e -> e.Api.pointers.logicalPointer value.ptr)
 
             let v = Marshal.ReadInt32(vptr, 0)
             Marshal.WriteInt32(ptr, index * sizeof<int>, v)
@@ -261,10 +262,10 @@ module SymbolicExpression =
         // Integer vector
         | IntegerVector ->
             let ptr =
-                engine.Api.pointers.integerPointer vector.ptr
+                engine.invoke(fun e -> e.Api.pointers.integerPointer vector.ptr)
 
             let vptr =
-                engine.Api.pointers.integerPointer value.ptr
+                engine.invoke(fun e -> e.Api.pointers.integerPointer value.ptr)
 
             let v = Marshal.ReadInt32(vptr, 0)
             Marshal.WriteInt32(ptr, index * sizeof<int>, v)
@@ -272,10 +273,10 @@ module SymbolicExpression =
         // Real vector
         | RealVector ->
             let ptr =
-                engine.Api.pointers.realPointer vector.ptr
+                engine.invoke(fun e -> e.Api.pointers.realPointer vector.ptr)
 
             let vptr =
-                engine.Api.pointers.realPointer value.ptr
+                engine.invoke(fun e -> e.Api.pointers.realPointer value.ptr)
 
             let bits = Marshal.ReadInt64(vptr, 0)
             Marshal.WriteInt64(ptr, index * sizeof<int64>, bits)
@@ -283,10 +284,10 @@ module SymbolicExpression =
         // Complex vector
         | ComplexVector ->
             let ptr =
-                engine.Api.pointers.realPointer vector.ptr
+                engine.invoke(fun e -> e.Api.pointers.realPointer vector.ptr)
 
             let vptr =
-                engine.Api.pointers.realPointer value.ptr
+                engine.invoke(fun e -> e.Api.pointers.realPointer value.ptr)
 
             let realBits = Marshal.ReadInt64(vptr, 0)
             let imagBits = Marshal.ReadInt64(vptr, 8)
@@ -296,17 +297,17 @@ module SymbolicExpression =
         // Character vector (STRSXP)
         | CharacterVector ->
             let ptr =
-                engine.Api.pointers.stringPointer vector.ptr
+                engine.invoke(fun e -> e.Api.pointers.stringPointer vector.ptr)
             // value.ptr is a CHARSXP
             Marshal.WriteIntPtr(ptr, index * System.IntPtr.Size, value.ptr)
 
         // Raw vector
         | RawVector ->
             let ptr =
-                engine.Api.pointers.charPointer vector.ptr
+                engine.invoke(fun e -> e.Api.pointers.charPointer vector.ptr)
 
             let vptr =
-                engine.Api.pointers.charPointer value.ptr
+                engine.invoke(fun e -> e.Api.pointers.charPointer value.ptr)
 
             let b = Marshal.ReadByte(vptr, 0)
             Marshal.WriteByte(ptr, index, b)
@@ -314,7 +315,7 @@ module SymbolicExpression =
         // VECSXP / EXPRSXP
         | List ->
             let ptr =
-                engine.Api.pointers.vectorPointer vector.ptr
+                engine.invoke(fun e -> e.Api.pointers.vectorPointer vector.ptr)
 
             Marshal.WriteIntPtr(ptr, index * System.IntPtr.Size, value.ptr)
 

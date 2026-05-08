@@ -91,9 +91,10 @@ let environmentTests =
           testProperty "Lookup of bound symbol always returns Some"
           <| fun value ->
               let env = Environment.createEmpty engine.Value
-              let eSym = NativeApi.install "env" engine.Value.Api
+              let eSym = NativeApi.install "env" |> engine.Value.invoke
 
-              NativeApi.defineVar eSym env.Pointer engine.Value.Api.globalEnv engine.Value.Api
+              let globEnv = engine.Value.invoke(fun e -> e.Api.globalEnv)
+              NativeApi.defineVar eSym env.Pointer globEnv |> engine.Value.invoke
               |> ignore
 
               Evaluate.tryEval
@@ -119,7 +120,6 @@ let environmentTests =
               then
                   true
               else
-                  printfn "Name = '%s'" sym
                   let emptyEnv = Environment.globalEnv engine.Value
                   Environment.tryGetValue engine.Value emptyEnv sym = None
 
@@ -135,6 +135,8 @@ let evalTests =
           <| fun _ ->
               let glob = Environment.globalEnv engine.Value
 
+              let x = Evaluate.tryEval "1+1" glob engine.Value
+
               let sexp =
                   Evaluate.tryEval "1+1" glob engine.Value
                   |> Result.toOption
@@ -144,7 +146,7 @@ let evalTests =
                   SymbolicExpression.getType engine.Value sexp
 
               Expect.equal t SymbolicExpression.RealVector "eval should not return a promise"
-
+        
               let r =
                   sexp |> Extract.extractFloatArray engine.Value
 

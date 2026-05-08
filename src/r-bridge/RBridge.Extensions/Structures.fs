@@ -8,157 +8,42 @@ open RBridge.SymbolicExpression
 /// is used internally in RBridge for constructing function arguments.
 module PairList =
 
-    let rec build (engine: NativeApi.RunningEngine) (args: (string option * SymbolicExpression) list) =
+    let rec build (engine: RInterop.RInstance) (args: (string option * SymbolicExpression) list) =
         match args with
-        | [] -> NativeApi.nilValue engine
+        | [] -> NativeApi.nilValue |> engine.invoke
         | (name, value) :: rest ->
             let tail = build engine rest
 
             let node =
-                engine.Api.construct.cons.Invoke(value.ptr, tail)
+                engine.invoke(fun e -> e.Api.construct.cons.Invoke(value.ptr, tail))
 
             match name with
             | Some name ->
-                let sym = engine.Api.symbol.install.Invoke(name)
-                engine.Api.linkedLists.setTag node sym
-            | None -> engine.Api.linkedLists.setTag node engine.Api.nilValue
+                let sym = engine.invoke(fun e -> e.Api.symbol.install.Invoke name)
+                engine.invokeUnit(fun e -> e.Api.linkedLists.setTag node sym)
+            | None ->
+                engine.invokeUnit(fun e -> e.Api.linkedLists.setTag node e.Api.nilValue)
 
             node
 
-    let rec read (engine: NativeApi.RunningEngine) (sexp: SymbolicExpression) : (string option * SymbolicExpression) list =
+    let rec read (engine: RInterop.RInstance) (sexp: SymbolicExpression) : (string option * SymbolicExpression) list =
 
-        if sexp.ptr = engine.Api.nilValue then
+        if sexp.ptr = engine.invoke(fun e -> e.Api.nilValue) then
             []
         else
-            let tag = engine.Api.linkedLists.getTag sexp.ptr
+            let tag = engine.invoke(fun e -> e.Api.linkedLists.getTag sexp.ptr)
             let nameOpt =
                 match { ptr = tag } with
-                | t when t.ptr = engine.Api.nilValue -> None
+                | t when t.ptr = engine.invoke(fun e -> e.Api.nilValue) -> None
                 | t when SymbolicExpression.getType engine t = Symbol ->
                     Some <| Extract.extractSymbol engine t
                 | _ -> None
 
-            let carPtr = engine.Api.linkedLists.getCar sexp.ptr
-            let cdrPtr = engine.Api.linkedLists.getCdr sexp.ptr
+            let carPtr = engine.invoke(fun e -> e.Api.linkedLists.getCar sexp.ptr)
+            let cdrPtr = engine.invoke(fun e -> e.Api.linkedLists.getCdr sexp.ptr)
             let value = { ptr = carPtr }
             (nameOpt, value) :: read engine { ptr = cdrPtr }
 
-module Promise =
-
-    /// Forces a promise to evaluate. If the expression is
-    /// not a promise, passes through unmodified.
-    let force (engine: NativeApi.RunningEngine) sexp =
-        match SymbolicExpression.getType engine sexp with
-        | Promise ->
-            if sexp.ptr = engine.Api.missingArg then
-                failwith "Cannot force a missing argument"
-
-            let forcedPtr =
-                NativeApi.tryEval sexp.ptr engine.Api.globalEnv engine
-                |> Result.defaultWith (fun _ -> failwith "Could not force expression")
-
-            { ptr = forcedPtr }
-        | _ -> sexp
-
-
-/// Convenience functions for evaluating R code and calling
-/// R functions.
-module Evaluate =
-
-    /// Evaluate raw R code in the R engine. The code must contain
-    /// only a single expression, not multiple expressions.
-    let tryEval (code: string) (env: REnvironment) (engine: NativeApi.RunningEngine) =
-
-        let strVec = Create.stringVector engine [| Some code |]
-
-        let mutable status =
-            NativeApi.Evaluate.ParseStatus.PARSE_NULL
-
-        let exprVec =
-            engine.Api.eval.parseVector.Invoke(strVec.ptr, -1, &status, NativeApi.nilValue engine)
-
-        if status <> NativeApi.Evaluate.ParseStatus.PARSE_OK then
-            failwithf "Parse error (%A) in expression: %s" status code
-
-        if NativeApi.length exprVec engine <> 1 then
-            failwith "The code contained multiple expressions, when only one is permitted here."
-
-        // Extract the first (and only) parsed expression from the VECSXP,
-        // as a EXPRSXP:
-        let firstExpr =
-            SymbolicExpression.getVectorElement engine { ptr = exprVec } 0
-
-        match NativeApi.tryEval firstExpr.ptr env.Pointer engine with
-        | Ok ptr -> Ok { ptr = ptr }
-        | Error errPtr -> Error "R evaluation error"
-
-    /// Call a function with named and / or unnamed arguments, formatted as a
-    /// paired list.
-    let tryCall
-        (rEnv: REnvironment)
-        (fn: SymbolicExpression)
-        (args: (string option * SymbolicExpression) list)
-        (engine: NativeApi.RunningEngine)
-        : Result<SymbolicExpression, string> =
-        let pairlist = PairList.build engine args
-
-        let callPtr =
-            engine.Api.construct.allocLang.Invoke(List.length args + 1)
-
-        engine.Api.linkedLists.setCar callPtr fn.ptr
-        engine.Api.linkedLists.setCdr callPtr pairlist
-
-        match NativeApi.tryEval callPtr rEnv.Pointer engine with
-        | Ok ptr -> Ok { ptr = ptr }
-        | Error errPtr -> Error "R evaluation error"
-
-
-module Environment =
-
-    /// Return a reference to the R global environment.
-    let globalEnv engine =
-        REnvironment <| NativeApi.globalEnv engine
-
-    let ofNamespace (engine: NativeApi.RunningEngine) namespaceName =
-        let name =
-            NativeApi.mkString namespaceName engine.Api
-
-        let nsPtr = engine.Api.findNamespace.Invoke name
-        REnvironment nsPtr
-
-    /// Convert a symbolic expression pointer to an environment, if it is one.
-    let ofSExp engine sexp =
-        match SymbolicExpression.getType engine sexp with
-        | Environment -> REnvironment sexp.ptr |> Some
-        | _ -> None
-
-    let ofPackage (engine: NativeApi.RunningEngine) (pkgName: string) =
-        let code = sprintf "as.environment('package:%s')" pkgName
-        Evaluate.tryEval code (globalEnv engine) engine
-        |> Result.toOption
-        |> Option.bind (ofSExp engine)
-        |> Option.defaultWith (fun _ -> failwith "Error making new environment")
-
-    let createEmpty (engine: NativeApi.RunningEngine) =
-        Evaluate.tryEval "new.env()" (globalEnv engine) engine
-        |> Result.toOption
-        |> Option.bind (ofSExp engine)
-        |> Option.defaultWith (fun _ -> failwith "Error making new environment")
-
-    /// Looks up a symbol by name within the specified environment.
-    /// Returns None if not bound.
-    /// Returns an R promise (Some) if bound. To obtain the true value,
-    /// force the promise.
-    let tryGetValue (engine: NativeApi.RunningEngine) (env: REnvironment) (name: string) =
-        let sym = NativeApi.install name engine.Api
-
-        let valuePtr =
-            NativeApi.getVarEx sym env.Pointer false engine.Api.unboundVal engine.Api
-
-        if valuePtr = engine.Api.unboundVal then
-            None
-        else
-            Some { ptr = valuePtr }
 
 module Attributes =
 
@@ -172,6 +57,172 @@ module Attributes =
                 Some
                 <| Extract.extractStringArray engine namesSexp
             | _ -> None
+
+
+module Lists =
+    
+    open System
+    open System.Runtime.InteropServices
+
+    let getListItem (engine: RInterop.RInstance) index sexp =
+        let ptr =
+            engine.invoke(fun e -> e.Api.pointers.vectorPointer sexp.ptr)
+
+        let elemPtr =
+            Marshal.ReadIntPtr(ptr, index * IntPtr.Size)
+
+        { ptr = elemPtr }
+
+    let getListItemByName engine (name: string) sexp =
+        let names =
+            Attributes.tryNames engine sexp
+            |> Option.defaultValue [||]
+
+        let idx = names |> Array.findIndex ((=) (Some name))
+        getListItem engine idx sexp
+
+
+/// Convenience functions for evaluating R code and calling
+/// R functions.
+module Evaluate =
+
+    /// Extract an error message from a returned error pointer.
+    let internal extractError (engine: RInterop.RInstance) errPtr =
+        if errPtr = 0n then "R evaluation error (no error provided)"
+        else
+            let t = SymbolicExpression.getType engine { ptr = errPtr }
+            let msgExpr = Lists.getListItemByName engine "message" { ptr = errPtr }
+            match getType engine msgExpr with
+            | CharacterVector ->
+                Extract.extractStringArray engine msgExpr
+                |> Seq.tryHead
+                |> Option.bind id
+                |> Option.defaultValue "R evaluation error"
+            | _ -> "R evaluation error"
+
+    let tryEval' expr env (engine: RInterop.RInstance) =
+        let mutable err = 0
+        let resultPtr =
+            engine.invoke(fun e -> e.Api.eval.tryEval.Invoke(expr, env, &err))
+        if err <> 0 then
+            Error resultPtr
+        else
+            Ok resultPtr
+
+    /// Evaluate raw R code in the R engine. The code must contain
+    /// only a single expression, not multiple expressions.
+    let tryEval (code: string) (env: REnvironment) (engine: RInterop.RInstance) =
+        let strVec = Create.stringVector engine [| Some code |]
+
+        let mutable status =
+            NativeApi.Evaluate.ParseStatus.PARSE_NULL
+
+        let exprVec =
+            engine.invoke(fun e -> e.Api.eval.parseVector.Invoke(strVec.ptr, -1, &status, NativeApi.nilValue e))
+
+        if status <> NativeApi.Evaluate.ParseStatus.PARSE_OK then
+            failwithf "Parse error (%A) in expression: %s" status code
+
+        if NativeApi.length exprVec |> engine.invokeInt <> 1 then
+            failwith "The code contained multiple expressions, when only one is permitted here."
+
+        // Extract the first (and only) parsed expression from the VECSXP,
+        // as a EXPRSXP:
+        let firstExpr =
+            SymbolicExpression.getVectorElement engine { ptr = exprVec } 0
+
+        match tryEval' firstExpr.ptr env.Pointer engine with
+        | Ok ptr -> Ok { ptr = ptr }
+        | Error errPtr -> extractError engine errPtr |> Error
+
+    /// Call a function with named and / or unnamed arguments, formatted as a
+    /// paired list.
+    let tryCall
+        (rEnv: REnvironment)
+        (fn: SymbolicExpression)
+        (args: (string option * SymbolicExpression) list)
+        (engine: RInterop.RInstance)
+        : Result<SymbolicExpression, string> =
+        let pairlist = PairList.build engine args
+
+        let callPtr =
+            engine.invoke(fun e -> e.Api.construct.allocLang.Invoke(List.length args + 1))
+
+        engine.invokeUnit(fun e -> e.Api.linkedLists.setCar callPtr fn.ptr)
+        engine.invokeUnit(fun e -> e.Api.linkedLists.setCdr callPtr pairlist)
+
+        match tryEval' callPtr rEnv.Pointer engine with
+        | Ok ptr -> Ok { ptr = ptr }
+        | Error errPtr -> extractError engine errPtr |> Error
+
+
+module Promise =
+
+    /// Forces a promise to evaluate. If the expression is
+    /// not a promise, passes through unmodified.
+    let force (engine: RInterop.RInstance) sexp =
+        match SymbolicExpression.getType engine sexp with
+        | Promise ->
+            if sexp.ptr = engine.invoke(fun e -> e.Api.missingArg) then
+                failwith "Cannot force a missing argument"
+
+            let globalEnv = engine.invoke(fun e -> e.Api.globalEnv)
+            let forcedPtr =
+                Evaluate.tryEval' sexp.ptr globalEnv engine
+                |> Result.defaultWith (fun _ -> failwith "Could not force expression")
+
+            { ptr = forcedPtr }
+        | _ -> sexp
+
+
+module Environment =
+
+    /// Return a reference to the R global environment.
+    let globalEnv (engine: RInterop.RInstance) =
+        REnvironment <| (NativeApi.globalEnv |> engine.invoke)
+
+    let ofNamespace (engine: RInterop.RInstance) namespaceName =
+        let name =
+            NativeApi.mkString namespaceName |> engine.invoke
+
+        let nsPtr = engine.invoke(fun e -> e.Api.findNamespace.Invoke name)
+        REnvironment nsPtr
+
+    /// Convert a symbolic expression pointer to an environment, if it is one.
+    let ofSExp engine sexp =
+        match SymbolicExpression.getType engine sexp with
+        | Environment -> REnvironment sexp.ptr |> Some
+        | _ -> None
+
+    let ofPackage (engine: RInterop.RInstance) (pkgName: string) =
+        let code = sprintf "as.environment('package:%s')" pkgName
+        Evaluate.tryEval code (globalEnv engine) engine
+        |> Result.toOption
+        |> Option.bind (ofSExp engine)
+        |> Option.defaultWith (fun _ -> failwith "Error making new environment")
+
+    let createEmpty (engine: RInterop.RInstance) =
+        Evaluate.tryEval "new.env()" (globalEnv engine) engine
+        |> Result.toOption
+        |> Option.bind (ofSExp engine)
+        |> Option.defaultWith (fun _ -> failwith "Error making new environment")
+
+    /// Looks up a symbol by name within the specified environment.
+    /// Returns None if not bound.
+    /// Returns an R promise (Some) if bound. To obtain the true value,
+    /// force the promise.
+    let tryGetValue (engine: RInterop.RInstance) (env: REnvironment) (name: string) =
+        let sym = NativeApi.install name |> engine.invoke
+
+        let unboundVal = engine.invoke(fun e -> e.Api.unboundVal)
+        let valuePtr =
+            NativeApi.getVarEx sym env.Pointer false unboundVal |> engine.invoke
+
+        if valuePtr = unboundVal then
+            None
+        else
+            Some { ptr = valuePtr }
+
 
 module Vector =
 
@@ -190,11 +241,11 @@ module Classes =
     let tryGetClass engine sexp =
         SymbolicExpression.tryGetAttribute sexp "class" engine
 
-    let getClasses (engine: NativeApi.RunningEngine) sexp =
+    let getClasses (engine: RInterop.RInstance) sexp =
         match SymbolicExpression.tryGetAttribute sexp "class" engine with
         | None -> []
         | Some cl ->
-            if cl.ptr = engine.Api.nilValue then []
+            if cl.ptr = engine.invoke(fun e -> e.Api.nilValue) then []
             else
                 match SymbolicExpression.getType engine cl with
                 | SymbolicExpression.CharacterVector ->
@@ -205,8 +256,8 @@ module Classes =
 
 module S4 =
 
-    let isS4 (engine:NativeApi.RunningEngine) sexp =
-        if engine.Api.typeof.isS4.Invoke sexp.ptr <> 0 then true else false
+    let isS4 (engine:RInterop.RInstance) sexp =
+        if engine.invoke(fun e -> e.Api.typeof.isS4.Invoke sexp.ptr) <> 0 then true else false
 
     let tryGetSlotTypes engine sexpS4 =
         let globalEnv = Environment.globalEnv engine
@@ -238,13 +289,13 @@ module S4 =
                     Some(Array.zip names types |> Map.ofArray)
                 | _ -> None)
 
-    let tryGetSlot (engine: NativeApi.RunningEngine) sexp slotName =
-        let sym = NativeApi.install slotName engine.Api
+    let tryGetSlot (engine: RInterop.RInstance) sexp slotName =
+        let sym = NativeApi.install slotName |> engine.invoke
 
         let ptr =
-            NativeApi.getAttribute sexp.ptr sym engine.Api
+            NativeApi.getAttribute sexp.ptr sym |> engine.invoke
 
-        if ptr = engine.Api.nilValue then
+        if ptr = engine.invoke(fun e -> e.Api.nilValue) then
             None
         else
             Some { ptr = ptr }
@@ -299,17 +350,17 @@ module Symbol =
         (name: string)
         (value: SymbolicExpression)
         (env: REnvironment)
-        (engine: NativeApi.RunningEngine)
+        (engine: RInterop.RInstance)
         : unit =
-        let sym = NativeApi.install name engine.Api
+        let sym = NativeApi.install name |> engine.invoke
         NativeApi.defineVar sym 0n env.Pointer |> ignore
 
     /// Capture the value of a symbol.
-    let getSymbol (name: string) (env: REnvironment) (engine: NativeApi.RunningEngine) : SymbolicExpression option =
-        let sym = NativeApi.install name engine.Api
+    let getSymbol (name: string) (env: REnvironment) (engine: RInterop.RInstance) : SymbolicExpression option =
+        let sym = NativeApi.install name |> engine.invoke
 
         let v =
-            NativeApi.getVar sym env.Pointer engine.Api
+            NativeApi.getVar sym env.Pointer |> engine.invoke
 
         if v = 0n then
             None
@@ -344,12 +395,12 @@ module Closures =
             | _ -> Optional
 
     /// Try and retrieve formals for a closure.
-    let tryFormals (engine: NativeApi.RunningEngine) closure =
+    let tryFormals (engine: RInterop.RInstance) closure =
         match SymbolicExpression.getType engine closure with
         | SymbolicExpression.Closure ->
 
-            let formalsPtr = engine.Api.closures.getFormals.Invoke closure.ptr
-            if formalsPtr = engine.Api.nilValue
+            let formalsPtr = engine.invoke(fun e -> e.Api.closures.getFormals.Invoke closure.ptr)
+            if formalsPtr = engine.invoke(fun e -> e.Api.nilValue)
             then None
             else
                 let raw = PairList.read engine { ptr = formalsPtr }
@@ -358,7 +409,7 @@ module Closures =
                     nameOpt |> Option.map (fun name ->
 
                         let def =
-                            if defaultExpr.ptr = engine.Api.missingArg then
+                            if defaultExpr.ptr = engine.invoke(fun e -> e.Api.missingArg) then
                                 Missing
                             else
                                 match SymbolicExpression.getType engine defaultExpr with

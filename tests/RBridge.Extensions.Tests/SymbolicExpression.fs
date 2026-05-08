@@ -15,7 +15,6 @@ let create =
           <| fun _ ->
               let baseNs =
                   Environment.ofNamespace engine.Value "base"
-
               let meanOpt =
                   Environment.tryGetValue engine.Value baseNs "mean"
 
@@ -78,5 +77,4 @@ let symExTests =
 
 [<EntryPoint>]
 let main argv =
-    engine.Force () |> ignore
     Tests.runTestsInAssemblyWithCLIArgs [ Sequenced ] argv

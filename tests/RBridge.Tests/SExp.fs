@@ -5,9 +5,7 @@ open RBridge
 
 let engine =
     lazy
-        (match RInterop.initialise Logging.console with
-         | NativeApi.Running r -> r
-         | _ -> failwith "Could not start R instance")
+        (RInterop.initialise { info = System.Console.WriteLine; debug = System.Console.WriteLine })
 
 [<Tests>]
 let exprTypes =
@@ -19,7 +17,8 @@ let exprTypes =
           <| fun _ ->
 
               let str =
-                  NativeApi.mkString "Hello string" engine.Value.Api
+                  engine.Value.invoke(fun e ->
+                    NativeApi.mkString "Hello string" e)
 
               let t =
                   SymbolicExpression.getType engine.Value { ptr = str }
@@ -29,7 +28,7 @@ let exprTypes =
           testCase "Character"
           <| fun _ ->
               let ptr =
-                  engine.Value.Api.symbol.mkChar.Invoke "x"
+                  engine.Value.invoke(fun e -> e.Api.symbol.mkChar.Invoke "x")
 
               let sexp = { ptr = ptr }
 
@@ -41,7 +40,7 @@ let exprTypes =
           testCase "Integer vector"
           <| fun _ ->
               let ptr =
-                  engine.Value.Api.allocVector.Invoke(SymbolicExpression.typeAsInt SymbolicExpression.IntegerVector, 5)
+                  engine.Value.invoke(fun e -> e.Api.allocVector.Invoke(SymbolicExpression.typeAsInt SymbolicExpression.IntegerVector, 5))
 
               let sexp = { ptr = ptr }
 
@@ -53,7 +52,7 @@ let exprTypes =
           testCase "Real vector"
           <| fun _ ->
               let ptr =
-                  engine.Value.Api.allocVector.Invoke(SymbolicExpression.typeAsInt SymbolicExpression.RealVector, 3)
+                  engine.Value.invoke(fun e -> e.Api.allocVector.Invoke(SymbolicExpression.typeAsInt SymbolicExpression.RealVector, 3))
 
               let sexp = { ptr = ptr }
 
@@ -65,12 +64,12 @@ let exprTypes =
           testCase "Pair list"
           <| fun _ ->
               let car =
-                  engine.Value.Api.symbol.mkString.Invoke "a"
+                  engine.Value.invoke(fun e -> e.Api.symbol.mkString.Invoke "a")
 
-              let cdr = engine.Value.Api.nilValue
+              let cdr = engine.Value.invoke(fun e -> e.Api.nilValue)
 
               let ptr =
-                  engine.Value.Api.construct.cons.Invoke(car, cdr)
+                  engine.Value.invoke(fun e -> e.Api.construct.cons.Invoke(car, cdr))
 
               let sexp = { ptr = ptr }
 
@@ -82,10 +81,10 @@ let exprTypes =
           testCase "Language object"
           <| fun _ ->
               let sym =
-                  engine.Value.Api.symbol.install.Invoke "+"
+                  engine.Value.invoke(fun e -> e.Api.symbol.install.Invoke "+")
 
               let ptr =
-                  engine.Value.Api.construct.lang1.Invoke sym
+                  engine.Value.invoke(fun e -> e.Api.construct.lang1.Invoke sym)
 
               let sexp = { ptr = ptr }
 
@@ -99,5 +98,4 @@ let exprTypes =
 
 [<EntryPoint>]
 let main argv =
-    engine.Force() |> ignore
     Tests.runTestsInAssemblyWithCLIArgs [ Sequenced ] argv
