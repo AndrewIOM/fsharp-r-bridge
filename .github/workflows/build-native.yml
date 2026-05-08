@@ -52,7 +52,7 @@ jobs:
               -I"r-headers" -I"$R_HOME/include" -L"$R_HOME/lib" -lR -DR_INTERFACE_PTRS
           elif [[ "$RUNNER_OS" == "Linux" ]]; then
             gcc -shared -fPIC native_api.c \
-              -o librbridge-native.so \
+              -o rbridge-native.so \
               -I"r-headers" -I"$R_HOME/include" -L"$R_HOME/lib" -lR -DR_INTERFACE_PTRS
           else
             gcc -shared -fPIC native_api.c \

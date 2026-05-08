@@ -18,7 +18,7 @@
     <!-- Linux -->
     <Exec Condition="'$(OS)' != 'Windows_NT' AND 
                      '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'True'"
-          Command="gcc -shared -fPIC '$(NativeDir)/native_api.c' -o '$(OutputPath)/lib$(NativeLibName).so' -I'$(RInclude)' -L'$(RLib)' -lR -DR_INTERFACE_PTRS" />
+          Command="gcc -shared -fPIC '$(NativeDir)/native_api.c' -o '$(OutputPath)/$(NativeLibName).so' -I'$(RInclude)' -L'$(RLib)' -lR -DR_INTERFACE_PTRS" />
 
     <!-- Windows -->
     <Exec Condition="'$(OS)' == 'Windows_NT'"
