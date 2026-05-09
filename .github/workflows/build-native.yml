@@ -32,7 +32,7 @@ jobs:
                 mkdir -p ~/.local/lib/R
                 echo "R_LIBS_USER=~/.local/lib/R" >> "$GITHUB_ENV"
                 echo "R_HOME=$(R RHOME)" >> "$GITHUB_ENV"
-                echo "LD_LIBRARY_PATH=$R_HOME/lib:$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
+                echo "LD_LIBRARY_PATH=$(R RHOME)/lib:$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
           elif [ "$RUNNER_OS" == "macOS" ]; then
                 echo "R_HOME=$(R RHOME)" >> "$GITHUB_ENV"
           elif [ "$RUNNER_OS" == "Windows" ]; then
