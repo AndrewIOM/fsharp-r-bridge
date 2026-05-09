@@ -1,3 +1,4 @@
+* 1.2.0 - R thread management and full multi-platform support
 * 1.1.1 - Fix windows default R path lookups
 * 1.1.0 - Option-based creation and extraction
 * 1.0.8 - Date and date-time support
