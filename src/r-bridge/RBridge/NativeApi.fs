@@ -224,7 +224,10 @@ module NativeApi =
     // We are not using string[] arguments here, because
     // R mutates them, so we need them to be C char* instead.
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
-    type Rf_initEmbeddedR = delegate of int * nativeint -> int
+    type Rf_initialize_R = delegate of int * nativeint -> int
+
+    [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
+    type setup_Rmainloop = delegate of unit -> unit
 
     [<UnmanagedFunctionPointer(CallingConvention.Cdecl)>]
     type Rf_endEmbeddedR = delegate of int -> unit
@@ -294,7 +297,8 @@ module NativeApi =
           linkedLists: LinkedListsApi
           allocVector: Rf_allocVector
           allocMatrix: Rf_allocMatrix
-          initEmbedded: Rf_initEmbeddedR
+          initR: Rf_initialize_R
+          setupMainLoop: setup_Rmainloop
           setStartTime: R_setStartTime
           replDllInit: R_ReplDLLinit
           endEmbeddedR: Rf_endEmbeddedR
@@ -325,11 +329,12 @@ module NativeApi =
           getCar: nativeint -> nativeint
     }
 
-    type REngine =
-        | Running of RunningEngine
-        | NotRunning of error: string
-
-    and RunningEngine = { Api: Api; LibHandle: nativeint }
+    type REngine = {
+        Api: Api
+        LibHandle: nativeint
+        CStackLimit: nativeint
+        CStackStart: nativeint
+        SignalHandlers: nativeint }
 
     let loadApi (dllPath: string) =
         let handle = NativeLibrary.Load(dllPath)
@@ -337,6 +342,9 @@ module NativeApi =
         let get (name: string) : 'T =
             let ptr = NativeLibrary.GetExport(handle, name)
             Marshal.GetDelegateForFunctionPointer(ptr, typeof<'T>) :?> 'T
+
+        let getSymbol (name: string) : nativeint =
+            NativeLibrary.GetExport(handle, name)
 
         let nilVal = 0n
         let dataptr: Rf_dataptr = get "DATAPTR"
@@ -405,7 +413,8 @@ module NativeApi =
                 ncols = get "Rf_ncols"
                 allocVector = get "Rf_allocVector"
                 allocMatrix = get "Rf_allocMatrix"
-                initEmbedded = get "Rf_initEmbeddedR"
+                initR = get "Rf_initialize_R"
+                setupMainLoop = get "setup_Rmainloop"
                 setStartTime = get "R_setStartTime"
                 replDllInit = get "R_ReplDLLinit"
                 endEmbeddedR = get "Rf_endEmbeddedR"
@@ -424,12 +433,10 @@ module NativeApi =
                       vectorPointer = dataptr.Invoke
                       complexPointer = dataptr.Invoke
                       charPointer = dataptr.Invoke } }
-          LibHandle = handle }
-
-    let private getApi engine =
-        match engine with
-        | Running api -> Ok api.Api
-        | NotRunning e -> Error(sprintf "Native API not loaded: %s" e)
+          LibHandle = handle
+          CStackLimit = getSymbol "R_CStackLimit"
+          CStackStart = getSymbol "R_CStackStart"
+          SignalHandlers = getSymbol "R_SignalHandlers" }
 
     /// Convert .NET string array of arguments into a native
     /// C char* array.
@@ -464,38 +471,38 @@ module NativeApi =
                 Ok resultPtr
 
     let protect expr =
-        fun engine -> engine.memory.protect.Invoke expr
+        fun engine -> engine.Api.memory.protect.Invoke expr
 
     let unprotect n =
-        fun engine -> engine.memory.unprotect.Invoke n
+        fun engine -> engine.Api.memory.unprotect.Invoke n
 
     let install name =
-        fun engine -> engine.symbol.install.Invoke name
+        fun engine -> engine.Api.symbol.install.Invoke name
 
     /// Get a variable without environment inheritance
     let getVar sym env =
-        fun engine -> engine.getVar.Invoke(sym, env, 0)
+        fun engine -> engine.Api.getVar.Invoke(sym, env, 0)
 
     let getVarEx sym (env: sexp) inherits ifNotFound =
         fun engine ->
             let inherits = if inherits = true then 1 else 0
-            engine.getVarEx.Invoke(sym, env, inherits, ifNotFound)
+            engine.Api.getVarEx.Invoke(sym, env, inherits, ifNotFound)
 
     let defineVar sym value env =
-        fun engine -> engine.defineVar.Invoke(sym, value, env)
+        fun engine -> engine.Api.defineVar.Invoke(sym, value, env)
 
     let setAttribute sexp sym newVal =
-        fun engine -> engine.attribute.setAttrib.Invoke(sexp, sym, newVal)
+        fun engine -> engine.Api.attribute.setAttrib.Invoke(sexp, sym, newVal)
 
     let getAttribute sexp sym =
-        fun engine -> engine.attribute.getAttrib.Invoke(sexp, sym)
+        fun engine -> engine.Api.attribute.getAttrib.Invoke(sexp, sym)
 
     let nilValue = fun engine -> engine.Api.nilValue
     let globalEnv = fun engine -> engine.Api.globalEnv
 
 
     /// refresh the cached R_NilValue and R_GlobalEnv after R has been initialised.
-    let refreshEnvironmentValues (run: RunningEngine) : RunningEngine =
+    let refreshEnvironmentValues (run: REngine) : REngine =
         let nilPtrLoc =
             NativeLibrary.GetExport(run.LibHandle, "R_NilValue")
 
@@ -538,7 +545,8 @@ module NativeApi =
     /// allocate an UTF8 null-terminated string and call Rf_mkString.
     /// Returns both the resulting sexp and the native pointer so that the
     /// caller can free the memory once it has been protected by R.
-    let mkString (s: string) api : sexp = api.symbol.mkString.Invoke s
+    let mkString (s: string) =
+        fun engine -> engine.Api.symbol.mkString.Invoke s
 
     /// create a CHARSXP directly from a managed string using Rf_mkChar
     let mkChar (s: string) api : sexp = api.symbol.mkChar.Invoke s
@@ -572,7 +580,12 @@ module NativeApi =
     let printVal m api = api.Api.printR.Invoke m
 
     let startEmbeddedR argv =
-        fun running -> withArgv argv running.Api.initEmbedded.Invoke
+        fun running ->
+            let init =  withArgv argv running.Api.initR.Invoke
+            if init <> 0 then failwith "Could not initialise R."
+            Marshal.WriteInt64(running.CStackLimit, -1L)
+            Marshal.WriteInt32(running.SignalHandlers, 0)
+            running.Api.setupMainLoop.Invoke()
 
     let endEmbeddedR status =
         fun running -> running.Api.endEmbeddedR.Invoke(status)

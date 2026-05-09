@@ -13,15 +13,15 @@ module NAs =
 /// Functions for creating R values from .NET values.
 module Create =
 
-    let stringVector (engine: NativeApi.RunningEngine) (strings: string option seq) : SymbolicExpression =
+    let stringVector (engine: RInterop.RInstance) (strings: string option seq) : SymbolicExpression =
         let vec =
-            engine.Api.allocVector.Invoke(typeAsInt CharacterVector, Seq.length strings)
+            engine.invoke(fun e -> e.Api.allocVector.Invoke(typeAsInt CharacterVector, Seq.length strings))
 
         for i = 0 to Seq.length strings - 1 do
             let charPtr =
                 match Seq.item i strings with
-                | Some s -> engine.Api.symbol.mkChar.Invoke s
-                | None -> engine.Api.naString
+                | Some s -> engine.invoke(fun e -> e.Api.symbol.mkChar.Invoke s)
+                | None -> engine.invoke(fun e -> e.Api.naString)
 
             SymbolicExpression.setVectorElement engine { ptr = vec } i { ptr = charPtr }
 
@@ -29,12 +29,12 @@ module Create =
 
     /// Create an integer vector in R, where F# None values correspond
     /// to R's internal representation of NA.
-    let intVector (engine: NativeApi.RunningEngine) ints : SymbolicExpression =
+    let intVector (engine: RInterop.RInstance) ints : SymbolicExpression =
         let xs = Seq.toArray ints
         let n = Array.length xs
-        let vec = engine.Api.allocVector.Invoke(typeAsInt IntegerVector, n)
+        let vec = engine.invoke(fun e -> e.Api.allocVector.Invoke(typeAsInt IntegerVector, n))
 
-        let ptr = engine.Api.pointers.integerPointer vec
+        let ptr = engine.invoke(fun e -> e.Api.pointers.integerPointer vec)
 
         for idx = 0 to n - 1 do
             let value =
@@ -47,33 +47,33 @@ module Create =
 
     /// Create a real numeric vector in R, where F# None values correspond
     /// to NAs in R.
-    let realVector (engine: NativeApi.RunningEngine) floats : SymbolicExpression =
+    let realVector (engine: RInterop.RInstance) floats : SymbolicExpression =
         let vec =
-            engine.Api.allocVector.Invoke(typeAsInt RealVector, Seq.length floats)
+            engine.invoke(fun e -> e.Api.allocVector.Invoke(typeAsInt RealVector, Seq.length floats))
 
-        let ptr = engine.Api.pointers.realPointer vec
+        let ptr = engine.invoke(fun e -> e.Api.pointers.realPointer vec)
 
         for i = 0 to Seq.length floats - 1 do
             let bits =
                 match Seq.item i floats with
-                | None -> BitConverter.DoubleToInt64Bits engine.Api.naReal
+                | None -> BitConverter.DoubleToInt64Bits (engine.invokeFloat(fun e -> e.Api.naReal))
                 | Some x ->  BitConverter.DoubleToInt64Bits x
 
             Marshal.WriteInt64(ptr, i * sizeof<int64>, bits)
 
         { ptr = vec }
 
-    let dateVector (engine: NativeApi.RunningEngine) (dates: RDate option seq) =
+    let dateVector (engine: RInterop.RInstance) (dates: RDate option seq) =
         let dayOffsets =
             dates |> Seq.map (Option.map (fun d -> float d.DaysSinceEpoch))
 
         let vec = realVector engine dayOffsets
-        let cls = NativeApi.install "class" engine.Api
-        let dateClass = NativeApi.mkString "Date" engine.Api
-        NativeApi.setAttribute vec.ptr cls dateClass engine.Api
+        let cls = NativeApi.install "class" |> engine.invoke
+        let dateClass = NativeApi.mkString "Date" |> engine.invoke
+        NativeApi.setAttribute vec.ptr cls dateClass |> engine.invokeUnit
         vec
 
-    let dateTimeVector (engine: NativeApi.RunningEngine) (values: RDateTime option seq) : SymbolicExpression =
+    let dateTimeVector (engine: RInterop.RInstance) (values: RDateTime option seq) : SymbolicExpression =
         let seconds = values |> Seq.map (Option.map (fun d -> d.SecondsSinceEpoch))
         let timezones =
             values
@@ -91,21 +91,21 @@ module Create =
         let vec = realVector engine seconds
         let classes = [ Some "POSIXct"; Some "POSIXt" ]
         let classVec = stringVector engine classes
-        let cls = NativeApi.install "class" engine.Api
-        NativeApi.setAttribute vec.ptr cls classVec.ptr engine.Api
+        let cls = NativeApi.install "class" |> engine.invoke
+        NativeApi.setAttribute vec.ptr cls classVec.ptr |> engine.invokeUnit
         match timezone with
         | Some tz ->
-            let tzVec = NativeApi.mkString tz engine.Api
-            let tzSym = NativeApi.install "tzone" engine.Api
-            NativeApi.setAttribute vec.ptr tzSym tzVec engine.Api
+            let tzVec = NativeApi.mkString tz |> engine.invoke
+            let tzSym = NativeApi.install "tzone" |> engine.invoke
+            NativeApi.setAttribute vec.ptr tzSym tzVec |> engine.invokeUnit
         | None -> ()
         vec
 
-    let logicalVector (engine: NativeApi.RunningEngine) (bools: bool option seq) : SymbolicExpression =
+    let logicalVector (engine: RInterop.RInstance) (bools: bool option seq) : SymbolicExpression =
         let vec =
-            engine.Api.allocVector.Invoke(typeAsInt LogicalVector, Seq.length bools)
+            engine.invoke(fun e -> e.Api.allocVector.Invoke(typeAsInt LogicalVector, Seq.length bools))
 
-        let ptr = engine.Api.pointers.logicalPointer vec
+        let ptr = engine.invoke(fun e -> e.Api.pointers.logicalPointer vec)
 
         for i = 0 to Seq.length bools - 1 do
             match Seq.item i bools with
@@ -116,17 +116,18 @@ module Create =
 
         { ptr = vec }
 
-    let complexVector (engine: NativeApi.RunningEngine) values : SymbolicExpression =
+    let complexVector (engine: RInterop.RInstance) values : SymbolicExpression =
 
         let n = Seq.length values
         let vec =
-            engine.Api.allocVector.Invoke(typeAsInt ComplexVector, n)
+            engine.invoke(fun e -> e.Api.allocVector.Invoke(typeAsInt ComplexVector, n))
 
-        let ptr = engine.Api.pointers.complexPointer vec
+        let ptr = engine.invoke(fun e -> e.Api.pointers.complexPointer vec)
 
         values
         |> Seq.fold (fun offset c ->
-            let c = c |> Option.defaultValue { Real = engine.Api.naReal; Imag = engine.Api.naReal }
+            let na = engine.invokeFloat(fun e -> e.Api.naReal)
+            let c = c |> Option.defaultValue { Real = na; Imag = na }
             Marshal.WriteInt64(ptr, offset, BitConverter.DoubleToInt64Bits c.Real)
             Marshal.WriteInt64(ptr, offset + sizeof<double>, BitConverter.DoubleToInt64Bits c.Imag)
             offset + 2 * sizeof<double>

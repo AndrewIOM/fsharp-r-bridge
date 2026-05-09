@@ -3,6 +3,7 @@
     <RHome>$(R_HOME)</RHome>
     <RInclude>$(RHome)\include</RInclude>
     <RLib>$(RHome)\lib</RLib>
+    <RLibWin>$(RHome)\bin\x64</RLibWin>
     <NativeLibName>rbridge-native</NativeLibName>
     <NativeDir>$(MSBuildThisFileDirectory)</NativeDir>
   </PropertyGroup>
@@ -18,9 +19,9 @@
     <!-- Linux -->
     <Exec Condition="'$(OS)' != 'Windows_NT' AND 
                      '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'True'"
-          Command="gcc -shared -fPIC '$(NativeDir)/native_api.c' -o '$(OutputPath)/lib$(NativeLibName).so' -I'$(RInclude)' -L'$(RLib)' -lR -DR_INTERFACE_PTRS" />
+          Command="gcc -shared -fPIC '$(NativeDir)/native_api.c' -o '$(OutputPath)/$(NativeLibName).so' -I'$(RInclude)' -L'$(RLib)' -lR -DR_INTERFACE_PTRS" />
 
     <!-- Windows -->
     <Exec Condition="'$(OS)' == 'Windows_NT'"
-          Command="gcc -shared -fPIC &quot;$(NativeDir)\native_api.c&quot; -o &quot;$(OutputPath)$(NativeLibName).dll&quot; -I&quot;$(RInclude)&quot; -L&quot;$(RLib)&quot; -lR -DR_INTERFACE_PTRS" />  </Target>
+          Command="gcc -shared -fPIC &quot;$(NativeDir)native_api.c&quot; -o &quot;$(OutputPath)$(NativeLibName).dll&quot; -I &quot;$(RInclude)&quot; -L &quot;$(RLibWin)&quot; -lR -DR_INTERFACE_PTRS" />  </Target>
 </Project>

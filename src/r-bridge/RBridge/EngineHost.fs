@@ -56,8 +56,11 @@ module EngineHost =
         let bin = Path.Combine(homePath, libFolder ())
 
         let dll =
-            Directory.EnumerateFiles(bin, libFileName(), SearchOption.TopDirectoryOnly)
-            |> Seq.tryHead
+            if Directory.Exists bin
+            then
+                Directory.EnumerateFiles(bin, libFileName(), SearchOption.TopDirectoryOnly)
+                |> Seq.tryHead
+            else None
 
         match dll with
         | Some file ->

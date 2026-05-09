@@ -18,9 +18,7 @@ let isSafeSymbolName (s: string) =
 
 let engine =
     lazy
-        (match RInterop.initialise Logging.console with
-         | NativeApi.Running r -> r
-         | _ -> failwith "Could not start R instance")
+        (RInterop.initialise { info = System.Console.WriteLine; debug = System.Console.WriteLine })
 
 let removeNans seq =
     seq |> Seq.filter(fun i ->
@@ -102,14 +100,12 @@ let stress =
                       SymbolicExpression.getType engine.Value v
 
                   if t <> SymbolicExpression.CharacterVector then
-                      printfn "STRSXP misclassified at iteration %d: %A" i t
                       ok <- false
 
                   let arr =
                       Extract.extractStringArray engine.Value v
 
                   if arr.Length <> 3 then
-                      printfn "Wrong length at iteration %d" i
                       ok <- false
 
               Expect.isTrue ok "STRSXP should classify and extract correctly"
@@ -120,7 +116,7 @@ let stress =
 
               for i in 1 .. 100000 do
                   let ptr =
-                      engine.Value.Api.symbol.mkChar.Invoke "x"
+                      engine.Value.invoke(fun e -> e.Api.symbol.mkChar.Invoke "x")
 
                   let sexp = { ptr = ptr }
                   let t = Extract.extractChar engine.Value sexp

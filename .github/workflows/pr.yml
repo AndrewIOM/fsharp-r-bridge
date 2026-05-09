@@ -10,8 +10,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest]
         r-version: [ '4.5.0' ]
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        arch: [ x64, arm64 ]
+        exclude:
+        - os: windows-latest
+          arch: arm64
 
     steps:
     - uses: actions/checkout@master
@@ -26,6 +30,7 @@ jobs:
               mkdir -p ~/.local/lib/R
               echo "R_LIBS_USER=~/.local/lib/R" >> "$GITHUB_ENV"
               echo "R_HOME=$(R RHOME)" >> "$GITHUB_ENV"
+              echo "LD_LIBRARY_PATH=$(R RHOME)/lib:$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
         elif [ "$RUNNER_OS" == "macOS" ]; then
               echo "R_HOME=$(R RHOME)" >> "$GITHUB_ENV"
         elif [ "$RUNNER_OS" == "Windows" ]; then
