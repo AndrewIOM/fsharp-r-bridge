@@ -131,25 +131,49 @@ let evalTests =
         "Evaluation of expressions"
         [
 
-          testCase "eval returns numeric type for 1+1"
-          <| fun _ ->
+            testCase "eval returns numeric type for 1+1"
+            <| fun _ ->
+                let glob = Environment.globalEnv engine.Value
+
+                let x = Evaluate.tryEval "1+1" glob engine.Value
+
+                let sexp =
+                    Evaluate.tryEval "1+1" glob engine.Value
+                    |> Result.toOption
+                    |> Option.get
+
+                let t =
+                    SymbolicExpression.getType engine.Value sexp
+
+                Expect.equal t SymbolicExpression.RealVector "eval should not return a promise"
+            
+                let r =
+                    sexp |> Extract.extractFloatArray engine.Value
+
+                Expect.equal r [| Some 2. |] "1+1 = 2"
+
+
+            testCase "Evaluations work in a parallel map" <| fun _ ->
+
               let glob = Environment.globalEnv engine.Value
 
-              let x = Evaluate.tryEval "1+1" glob engine.Value
+              let x =
+                [| 1 .. 100 |]
+                |> Array.map(fun i -> 
+                    Evaluate.tryEval (sprintf "sin(%i+1)" i) glob engine.Value
+                    |> Result.toOption
+                    |> Option.defaultWith(fun _ -> failwith "no result")
+                    |> Extract.extractFloatArray engine.Value )
 
-              let sexp =
-                  Evaluate.tryEval "1+1" glob engine.Value
-                  |> Result.toOption
-                  |> Option.get
+              let y =
+                [| 1 .. 100 |]
+                |> Array.Parallel.map(fun i ->
+                    Evaluate.tryEval (sprintf "sin(%i+1)" i) glob engine.Value
+                    |> Result.toOption
+                    |> Option.defaultWith(fun _ -> failwith "no result")
+                    |> Extract.extractFloatArray engine.Value )
+              
+              Expect.equal x y "Array was different when run in parallel mapping"              
 
-              let t =
-                  SymbolicExpression.getType engine.Value sexp
-
-              Expect.equal t SymbolicExpression.RealVector "eval should not return a promise"
-        
-              let r =
-                  sexp |> Extract.extractFloatArray engine.Value
-
-              Expect.equal r [| Some 2. |] "1+1 = 2"
 
          ]
